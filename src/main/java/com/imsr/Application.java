@@ -1,21 +1,14 @@
 package com.imsr;
 
-import com.vaadin.flow.theme.aura.Aura;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import com.vaadin.flow.component.dependency.StyleSheet;
-import com.vaadin.flow.component.page.AppShellConfigurator;
-import com.vaadin.flow.component.page.Push;
-
 @SpringBootApplication
-@StyleSheet(Aura.STYLESHEET)
-@StyleSheet("styles.css") // Your custom styles
-@Push
-public class Application implements AppShellConfigurator {
+public class Application {
 
     public static void main(String[] args) {
+        // This starts the embedded web server and keeps it running on port 8080
+    	System.setProperty("java.awt.headless", "false"); // Fix HeadlessException happens because Vaadin runs as a web server on a machine that Java thinks is "headless"
         SpringApplication.run(Application.class, args);
     }
-
 }
