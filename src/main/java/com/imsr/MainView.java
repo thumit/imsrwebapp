@@ -73,7 +73,7 @@ public class MainView extends VerticalLayout {
 
         consoleOutput.setSizeFull();
         consoleOutput.setReadOnly(true);
-        consoleOutput.setValue("System ready. Click 'Select PDFs & Aggregate' to choose files via File Chooser.\n");
+        consoleOutput.setValue("System ready, click 'SELECT IMSR PDFs' \n");
         
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
@@ -83,7 +83,7 @@ public class MainView extends VerticalLayout {
         TextArea area = new TextArea();
         area.setSizeFull();
         area.setReadOnly(true);
-        area.setValue("No data aggregated yet. Click 'SELECT IMSR PDFs' to process files.");
+        area.setValue("No results. Click 'SELECT IMSR PDFs' to process files.");
         return area;
     }
 
