@@ -436,7 +436,32 @@ public class MainView extends VerticalLayout {
             JFileChooser fileChooser = new JFileChooser("C:\\");
             fileChooser.setDialogTitle("Select IMSR PDF Reports");
             fileChooser.setMultiSelectionEnabled(true);
-            fileChooser.setFileFilter(new FileNameExtensionFilter("PDF Files (*.pdf)", "pdf"));
+
+            // Custom FileFilter extending javax.swing.filechooser.FileFilter properly
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+                @Override
+                public boolean accept(File f) {
+                    if (f.isDirectory()) {
+                        return true;
+                    }
+                    
+                    String name = f.getName();
+                    if (!name.toLowerCase().endsWith(".pdf")) {
+                        return false;
+                    }
+
+                    // Format 1: Starts with 8 digits followed by "IMSR", then optional trailing text, ending in .pdf
+                    boolean format1 = java.util.regex.Pattern.compile("^\\d{8}IMSR.*\\.pdf$", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(name).matches();
+                    // Format 2: Contains "IMSR" followed by an exact 8-digit sequence, then optional trailing text, ending in .pdf
+                    boolean format2 = java.util.regex.Pattern.compile(".*IMSR.*\\d{8}.*\\.pdf$", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(name).matches();
+                    return format1 || format2;
+                }
+
+                @Override
+                public String getDescription() {
+                    return "Valid IMSR PDFs (YYYYMMDDIMSR or IMSR with 8-digit date)";
+                }
+            });
 
             int userSelection = fileChooser.showOpenDialog(dummyFrame);
 
