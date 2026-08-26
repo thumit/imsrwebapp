@@ -50,8 +50,12 @@ public class MainView extends VerticalLayout {
     private final String[] header4 = new String[] { "imsr_date", "gacc", "incidents", "cumulative_size", "crews", "engines", "helicopters", "personnel", "personnel_change", "preparedness_level" };
 
     public MainView() {
-        setSizeFull();
-        setPadding(true);
+//        setSizeFull();
+//        setPadding(true);
+//        setSpacing(true);
+//        setFlexGrow(1, contentArea);
+//        setMinHeight("0px");
+//        setMaxHeight("300px");
 
         H2 title = new H2("IMSR Webapp");
         
@@ -82,6 +86,7 @@ public class MainView extends VerticalLayout {
     private TextArea createDataTextArea() {
         TextArea area = new TextArea();
         area.setSizeFull();
+        setFlexGrow(1, area);
         area.setReadOnly(true);
         area.setValue("No results. Click 'SELECT IMSR PDFs' to process files.");
         return area;
