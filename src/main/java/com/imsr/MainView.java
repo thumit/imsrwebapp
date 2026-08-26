@@ -53,10 +53,10 @@ public class MainView extends VerticalLayout {
         setSizeFull();
         setPadding(true);
 
-        H2 title = new H2("IMSR Web Dashboard");
+        H2 title = new H2("IMSR Webapp");
         
         // Hook button directly to the Swing File Chooser trigger
-        Button processButton = new Button("Select PDFs & Aggregate", e -> openFileChooser());
+        Button processButton = new Button("SELECT IMSR PDFs", e -> openFileChooser());
         processButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         
         HorizontalLayout topBar = new HorizontalLayout(title, processButton);
