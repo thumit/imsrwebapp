@@ -104,14 +104,18 @@ public class MainView extends VerticalLayout {
         System.setErr(ps);
 
         StringBuilder logBuilder = new StringBuilder();
+        
+     // Keep track of folders so we can clean them up securely
+        File rawFolder = null;
+        File simple2Folder = null;
 
         try {
             if (pdfFiles != null && pdfFiles.length > 0) {
                 
                 // Determine base directory dynamically from selected files or fallback
                 File baseDir = pdfFiles[0].getParentFile();
-                File rawFolder = new File(baseDir, "raw");
-                File simple2Folder = new File(baseDir, "simple2");
+                rawFolder = new File(baseDir, "raw");
+                simple2Folder = new File(baseDir, "simple2");
 
                 if (!baseDir.exists() || (!new File(baseDir, "raw").exists())) {
                     baseDir = new File("C:\\atest");
@@ -137,6 +141,8 @@ public class MainView extends VerticalLayout {
                         if (rawFile.exists() && simple2File.exists()) {
                             processedList.add(new ISMR_Process(simple2File, rawFile));
                             logBuilder.append("Processed file: ").append(txtName).append("\n");
+                            rawFile.delete();
+                            simple2File.delete();
                         }
                     }
 
@@ -197,6 +203,26 @@ public class MainView extends VerticalLayout {
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
+        	// CLEANUP: Delete text files and folders immediately when done
+            try {
+                if (rawFolder != null && rawFolder.exists()) {
+                    File[] files = rawFolder.listFiles();
+                    if (files != null) {
+                        for (File f : files) f.delete();
+                    }
+                    rawFolder.delete(); // Delete the folder itself
+                }
+                if (simple2Folder != null && simple2Folder.exists()) {
+                    File[] files = simple2Folder.listFiles();
+                    if (files != null) {
+                        for (File f : files) f.delete();
+                    }
+                    simple2Folder.delete(); // Delete the folder itself
+                }
+            } catch (Exception e) {
+                System.out.println("Warning: Could not fully clean up temporary text folders.");
+            }
+            
             // Restore original system streams
             System.setOut(oldOut);
             System.setErr(oldErr);
