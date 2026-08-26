@@ -3,6 +3,8 @@ package com.imsr;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
@@ -93,6 +95,9 @@ public class MainView extends VerticalLayout {
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
+    	// 1. Rename, deduplicate, and sort files cleanly first!
+        pdfFiles = prepareAndCleanFiles(pdfFiles);
+        
         // --- CLEAR PREVIOUS UI DATA AREAS ---
         nationalDataArea.setValue("");
         gaccDataArea.setValue("");
@@ -247,6 +252,78 @@ public class MainView extends VerticalLayout {
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
     }
+    
+    
+    private File[] prepareAndCleanFiles(File[] pdfFiles) {
+        if (pdfFiles == null || pdfFiles.length == 0) return new File[0];
+
+        Map<String, File> sortedUniqueFiles = new TreeMap<>();
+
+        for (File file : pdfFiles) {
+            try {
+                String fileName = file.getName();
+                String dateKey = extractDateString(fileName).replace("-", ""); // produces YYYYMMDD
+                String newFileName = dateKey + "IMSR.pdf";
+
+                File targetFile = new File(file.getParentFile(), newFileName);
+
+                if (!targetFile.exists()) {
+                    // If the standardized file doesn't exist yet, rename this file to it
+                    boolean renamed = file.renameTo(targetFile);
+                    if (renamed) {
+                        sortedUniqueFiles.put(dateKey, targetFile);
+                    } else {
+                        // Fallback if renaming fails
+                        sortedUniqueFiles.putIfAbsent(dateKey, file);
+                    }
+                } else {
+                    // IT'S A DUPLICATE: The target date file already exists! Delete this duplicate file from the disk so it doesn't cause processing errors.
+                    if (!file.getAbsolutePath().equals(targetFile.getAbsolutePath())) {
+                        file.delete();
+                    }
+                    // Ensure the unique map points to the primary target file
+                    sortedUniqueFiles.putIfAbsent(dateKey, targetFile);
+                }
+            } catch (Exception e) {
+                System.out.println("Could not parse date for renaming: " + file.getName());
+            }
+        }
+
+        return sortedUniqueFiles.values().toArray(new File[0]);
+    }
+    
+    
+    private String extractDateString(String fileName) {
+        // Check if it's already in the clean format: YYYYMMDDIMSR (e.g., 20260619IMSR.pdf)
+        java.util.regex.Pattern alreadyCleanPattern = java.util.regex.Pattern.compile("^(\\d{8})IMSR");
+        java.util.regex.Matcher cleanMatcher = alreadyCleanPattern.matcher(fileName);
+        if (cleanMatcher.find()) {
+            return cleanMatcher.group(1); // Already in YYYYMMDD format, return it directly!
+        }
+
+        // Otherwise, handle the original raw/messy naming convention (e.g., IMSR_CY26_06192026)
+        if (fileName.contains("IMSR")) {
+            fileName = fileName.substring(fileName.indexOf("IMSR"));
+        }
+
+        // Find the 8-digit date block (MMDDYYYY)
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d{8})");
+        java.util.regex.Matcher matcher = pattern.matcher(fileName);
+
+        if (matcher.find()) {
+            String mmddyyyy = matcher.group(1); // e.g., "06192026"
+
+            String mm = mmddyyyy.substring(0, 2);
+            String dd = mmddyyyy.substring(2, 4);
+            String yyyy= mmddyyyy.substring(4, 8); // e.g., "2026"
+
+            // Reconstruct precisely to YYYYMMDD
+            return yyyy + mm + dd; // Results in "20260619"
+        }
+
+        throw new IllegalArgumentException("Could not find a valid 8-digit date pattern in filename: " + fileName);
+    }
+    
 
     private void fix_ctd(List<String> final_fires) {
         String raw_number_record_list = "";
