@@ -33,20 +33,20 @@ public class IMSR_Explore {
      * Core aggregation logic preserving your precise data processing and fix_ctd algorithm.
      */
     public static AggregationResult aggregateFiles(File[] s_files, File[] r_files) {
-        ISMR_Process[] ismr_process = new ISMR_Process[s_files.length];
+        IMSR_Process[] ismr_process = new IMSR_Process[s_files.length];
         for (int i = 0; i < s_files.length; i++) {
-            ismr_process[i] = new ISMR_Process(s_files[i], r_files[i]);
+            ismr_process[i] = new IMSR_Process(s_files[i], r_files[i]);
         }
 
         List<String> nationalActivity = new ArrayList<>();
         nationalActivity.add(String.join("\t", HEADER_NATIONAL));
-        for (ISMR_Process ismr : ismr_process) {
+        for (IMSR_Process ismr : ismr_process) {
             nationalActivity.add(String.join("\t", ismr.national_activity));
         }
 
         List<String> gaccActivity = new ArrayList<>();
         gaccActivity.add(String.join("\t", HEADER_GACC));
-        for (ISMR_Process ismr : ismr_process) {
+        for (IMSR_Process ismr : ismr_process) {
             for (String st : ismr.gacc_activity) {
                 gaccActivity.add(st);
             }
@@ -54,14 +54,14 @@ public class IMSR_Explore {
 
         List<String> resourceSummary = new ArrayList<>();
         resourceSummary.add(String.join("\t", HEADER_RESOURCE));
-        for (ISMR_Process ismr : ismr_process) {
+        for (IMSR_Process ismr : ismr_process) {
             for (String st : ismr.resource_summary) {
                 resourceSummary.add(st);
             }
         }
 
         List<String> finalFires = new ArrayList<>();
-        for (ISMR_Process ismr : ismr_process) {
+        for (IMSR_Process ismr : ismr_process) {
             finalFires.addAll(ismr.final_fires);
         }
         

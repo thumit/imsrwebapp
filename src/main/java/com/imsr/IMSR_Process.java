@@ -34,7 +34,7 @@ import java.util.Set;
 
 import com.imsr.core.SubstringBetween;
 
-public class ISMR_Process {
+public class IMSR_Process {
 	String date, s_date, r_date;
 	int date_int;
 	String national_prepareness_level;
@@ -71,7 +71,7 @@ public class ISMR_Process {
 	List<String> OSCC = new ArrayList<String>();	// Southern California
 	List<String> SWCC = new ArrayList<String>();	// Southwest
 
-	public ISMR_Process(File s_file, File r_file) {
+	public IMSR_Process(File s_file, File r_file) {
 		try {
 			generate_manual_fire_adjustment_list();
 			

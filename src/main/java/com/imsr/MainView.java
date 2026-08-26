@@ -127,7 +127,7 @@ public class MainView extends VerticalLayout {
                 Utility.convert_pdf_to_text_files(pdfFiles, "both");
 
                 if (rawFolder.exists() && simple2Folder.exists()) {
-                    List<ISMR_Process> processedList = new ArrayList<>();
+                    List<IMSR_Process> processedList = new ArrayList<>();
 
                     // Loop ONLY through the specific PDFs you just selected
                     for (File pdfFile : pdfFiles) {
@@ -139,20 +139,20 @@ public class MainView extends VerticalLayout {
                         File simple2File = new File(simple2Folder, txtName);
 
                         if (rawFile.exists() && simple2File.exists()) {
-                            processedList.add(new ISMR_Process(simple2File, rawFile));
-                            logBuilder.append("Processed file: ").append(txtName).append("\n");
+                            processedList.add(new IMSR_Process(simple2File, rawFile));
                             rawFile.delete();
                             simple2File.delete();
                         }
                     }
+                    logBuilder.append("Number of processed PDF files: ").append(pdfFiles.length).append("\n");
 
                     if (!processedList.isEmpty()) {
-                        ISMR_Process[] processedArray = processedList.toArray(new ISMR_Process[0]);
+                        IMSR_Process[] processedArray = processedList.toArray(new IMSR_Process[0]);
 
                         // --- BUILD NATIONAL ACTIVITY ---
                         StringBuilder nationalContent = new StringBuilder();
                         nationalContent.append(String.join("\t", header1)).append("\n");
-                        for (ISMR_Process ismr : processedArray) {
+                        for (IMSR_Process ismr : processedArray) {
                             nationalContent.append(String.join("\t", ismr.national_activity)).append("\n");
                         }
                         nationalDataArea.setValue(nationalContent.toString());
@@ -160,7 +160,7 @@ public class MainView extends VerticalLayout {
                         // --- BUILD GACC ACTIVITY ---
                         StringBuilder gaccContent = new StringBuilder();
                         gaccContent.append(String.join("\t", header2)).append("\n");
-                        for (ISMR_Process ismr : processedArray) {
+                        for (IMSR_Process ismr : processedArray) {
                             for (String st : ismr.gacc_activity) {
                                 gaccContent.append(st).append("\n");
                             }
@@ -170,7 +170,7 @@ public class MainView extends VerticalLayout {
                         // --- BUILD RESOURCE SUMMARY ---
                         StringBuilder resourceContent = new StringBuilder();
                         resourceContent.append(String.join("\t", header4)).append("\n");
-                        for (ISMR_Process ismr : processedArray) {
+                        for (IMSR_Process ismr : processedArray) {
                             for (String st : ismr.resource_summary) {
                                 resourceContent.append(st).append("\n");
                             }
@@ -179,7 +179,7 @@ public class MainView extends VerticalLayout {
 
                         // --- BUILD WILDFIRE ACTIVITY (with fix_ctd) ---
                         List<String> final_fires = new ArrayList<>();
-                        for (ISMR_Process ismr : processedArray) {
+                        for (IMSR_Process ismr : processedArray) {
                             final_fires.addAll(ismr.final_fires);
                         }
                         fix_ctd(final_fires);
