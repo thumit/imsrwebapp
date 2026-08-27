@@ -17,8 +17,8 @@ RUN --mount=type=cache,target=/root/.m2 \
     OFFLINE_KEY=$(cat /run/secrets/offlineKey 2>/dev/null || echo "") && \
     ./mvnw clean package -DskipTests -Dvaadin.proKey=${PRO_KEY} -Dvaadin.offlineKey=${OFFLINE_KEY}'
 
-# RUNTIME STAGE (Alpine)
-FROM eclipse-temurin:21-jre-alpine
+# RUNTIME STAGE (Use Debian base instead of Alpine for binary/xpdf compatibily
+FROM eclipse-temurin:21-jre
 
 # Install pdftotext on Alpine runtime container
 RUN apk add --no-cache poppler-utils
