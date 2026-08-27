@@ -18,6 +18,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.vaadin.flow.component.button.Button;
@@ -284,7 +285,7 @@ public class MainView extends VerticalLayout {
                 .set("color", "#0f172a")
                 .set("margin", "0");
 
-        // Export Excel Button
+     // Export Excel Button
         Button downloadExcelBtn = new Button("Excel Export", VaadinIcon.FILE_TABLE.create());
         downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         downloadExcelBtn.getStyle().set("border-radius", "0.375rem");
@@ -295,7 +296,7 @@ public class MainView extends VerticalLayout {
         excelResource.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         Anchor downloadExcelAnchor = new Anchor(excelResource, "");
-        downloadExcelAnchor.getElement().setAttribute("download", true);
+        downloadExcelAnchor.setTarget("_blank");
         downloadExcelAnchor.add(downloadExcelBtn);
 
         // Export CSV Button
@@ -486,10 +487,10 @@ public class MainView extends VerticalLayout {
             return new ByteArrayInputStream(new byte[0]);
         }
 
-        // Keep output stream alive until byte array is fully extracted
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        try (Workbook workbook = new XSSFWorkbook()) {
+        // Use SXSSFWorkbook for memory-efficient streaming to prevent OOM errors
+        try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             Sheet sheet = workbook.createSheet("Data");
             String[] lines = rawData.split("\n");
 
@@ -500,7 +501,6 @@ public class MainView extends VerticalLayout {
                     Cell cell = row.createCell(j);
                     String val = cells[j].trim();
                     
-                    // Write numbers as actual numeric types for Excel
                     if (val.matches("-?\\d+")) {
                         cell.setCellValue(Long.parseLong(val));
                     } else if (val.matches("-?\\d+\\.\\d+")) {
@@ -511,15 +511,9 @@ public class MainView extends VerticalLayout {
                 }
             }
 
-            if (lines.length > 0) {
-                int colCount = lines[0].split("\t", -1).length;
-                for (int col = 0; col < colCount; col++) {
-                    sheet.autoSizeColumn(col);
-                }
-            }
-
             workbook.write(out);
             out.flush();
+            workbook.dispose(); // Clean up temporary disk files used by SXSSF
         } catch (Exception e) {
             e.printStackTrace();
         }
