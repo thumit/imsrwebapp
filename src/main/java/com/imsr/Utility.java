@@ -16,38 +16,49 @@ public class Utility {
         if (files != null && files.length > 0) {
             String inputFolder = files[0].getParentFile().getAbsolutePath();
             boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-            File pdftotext_exe_target_file = null;
+            File pdftotext_target_file = null;
 
             if (isWindows) {
                 Path targetDirectory = Paths.get(inputFolder + File.separator + "pdftotext.exe");
-                pdftotext_exe_target_file = FilesHandle.getResourceFile("pdftotext.exe", targetDirectory);
+                pdftotext_target_file = FilesHandle.getResourceFile("pdftotext.exe", targetDirectory);
+            } else {
+                // Linux / Render environment: Extract custom binary supporting -simple2
+                Path targetDirectory = Paths.get(inputFolder + File.separator + "pdftotext_linux");
+                pdftotext_target_file = FilesHandle.getResourceFile("pdftotext_linux", targetDirectory);
+
+                // Ensure execution permission is granted on the extracted Linux binary
+                if (pdftotext_target_file != null && pdftotext_target_file.exists()) {
+                    pdftotext_target_file.setExecutable(true, false);
+                }
             }
 
             if ("both".equals(convertOption)) {
-                run_command(inputFolder, files, "simple2");
-                run_command(inputFolder, files, "raw");
+                run_command(inputFolder, files, "simple2", pdftotext_target_file);
+                run_command(inputFolder, files, "raw", pdftotext_target_file);
             } else {
-                run_command(inputFolder, files, convertOption);
+                run_command(inputFolder, files, convertOption, pdftotext_target_file);
             }
 
-            if (pdftotext_exe_target_file != null && pdftotext_exe_target_file.exists()) {
-                pdftotext_exe_target_file.delete();
+            if (pdftotext_target_file != null && pdftotext_target_file.exists()) {
+                pdftotext_target_file.delete();
             }
         }
     }
 
-    public static void run_command(String inputFolder, File[] files, String convertOption) {
+    public static void run_command(String inputFolder, File[] files, String convertOption, File customExecutableFile) {
         File outDirectory = new File(inputFolder, convertOption);
         if (!outDirectory.exists()) {
             outDirectory.mkdirs();
         }
 
-        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-        
-        // Resolve absolute binary path for Windows (extracted local exe) vs Linux (installed poppler utility)
-        String executable = isWindows 
-                ? new File(inputFolder, "pdftotext.exe").getAbsolutePath() 
-                : "pdftotext";
+        // Use extracted custom binary if available, fallback to system PATH binary if null
+        String executable;
+        if (customExecutableFile != null && customExecutableFile.exists()) {
+            executable = customExecutableFile.getAbsolutePath();
+        } else {
+            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            executable = isWindows ? "pdftotext.exe" : "pdftotext";
+        }
 
         for (File pdfFile : files) {
             String fileName = pdfFile.getName();
@@ -57,8 +68,6 @@ public class Utility {
             List<String> command = new ArrayList<>();
             command.add(executable);
 
-            // pdftotext CLI options mapping:
-            // "simple2" uses layout preservation; "raw" uses raw layout/stream order
             if ("simple2".equals(convertOption)) {
                 command.add("-simple2");
             } else if ("raw".equals(convertOption)) {
@@ -73,8 +82,7 @@ public class Utility {
 
             try {
                 Process p = builder.start();
-                
-                // Read and output stream to capture errors in Render logs
+
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
