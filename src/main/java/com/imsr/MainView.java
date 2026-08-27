@@ -122,16 +122,18 @@ public class MainView extends VerticalLayout {
         try {
             if (pdfFiles != null && pdfFiles.length > 0) {
                 
-            	// --- CROSS-PLATFORM TEMP DIRECTORY FIX ---
+            	// --- CROSS-PLATFORM TEMP DIRECTORY SETUP ---
             	File baseDir = new File(System.getProperty("java.io.tmpdir"), "imsr_processing");
-                rawFolder = new File(baseDir, "raw");
-                simple2Folder = new File(baseDir, "simple2");
+            	rawFolder = new File(baseDir, "raw");
+            	simple2Folder = new File(baseDir, "simple2");
 
-                if (!baseDir.exists() || (!new File(baseDir, "raw").exists())) {
-                    baseDir = new File("C:\\atest");
-                    rawFolder = new File(baseDir, "raw");
-                    simple2Folder = new File(baseDir, "simple2");
-                }
+            	// Ensure directory hierarchy exists on both Windows and Render Linux
+            	if (!rawFolder.exists()) {
+            	    rawFolder.mkdirs();
+            	}
+            	if (!simple2Folder.exists()) {
+            	    simple2Folder.mkdirs();
+            	}
 
                 // Convert the newly selected PDFs (this overwrites matching names automatically)
                 Utility.convert_pdf_to_text_files(pdfFiles, "both");
