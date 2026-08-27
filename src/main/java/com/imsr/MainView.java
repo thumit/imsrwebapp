@@ -485,10 +485,11 @@ public class MainView extends VerticalLayout {
         if (rawData == null || rawData.trim().isEmpty()) {
             return new ByteArrayInputStream(new byte[0]);
         }
-        
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
+        // Keep output stream alive until byte array is fully extracted
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Data");
             String[] lines = rawData.split("\n");
 
@@ -497,7 +498,16 @@ public class MainView extends VerticalLayout {
                 String[] cells = lines[i].split("\t", -1);
                 for (int j = 0; j < cells.length; j++) {
                     Cell cell = row.createCell(j);
-                    cell.setCellValue(cells[j]);
+                    String val = cells[j].trim();
+                    
+                    // Write numbers as actual numeric types for Excel
+                    if (val.matches("-?\\d+")) {
+                        cell.setCellValue(Long.parseLong(val));
+                    } else if (val.matches("-?\\d+\\.\\d+")) {
+                        cell.setCellValue(Double.parseDouble(val));
+                    } else {
+                        cell.setCellValue(val);
+                    }
                 }
             }
 
@@ -509,11 +519,12 @@ public class MainView extends VerticalLayout {
             }
 
             workbook.write(out);
-            return new ByteArrayInputStream(out.toByteArray());
+            out.flush();
         } catch (Exception e) {
             e.printStackTrace();
-            return new ByteArrayInputStream(new byte[0]);
         }
+
+        return new ByteArrayInputStream(out.toByteArray());
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
