@@ -1,15 +1,12 @@
 package com.imsr;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -19,6 +16,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.router.Route;
 
 @Route("")
@@ -51,6 +50,9 @@ public class MainView extends VerticalLayout {
             "engines", "helicopters", "structures_lost", "cost_to_date", "origin_ownership" };
     private final String[] header4 = new String[] { "imsr_date", "gacc", "incidents", "cumulative_size", "crews", "engines", "helicopters", "personnel", "personnel_change", "preparedness_level" };
 
+    // Keep track of uploaded files in a temporary batch list
+    private final List<File> uploadedBatchFiles = new ArrayList<>();
+
     public MainView() {
 //        setSizeFull();
 //        setPadding(true);
@@ -61,11 +63,61 @@ public class MainView extends VerticalLayout {
 
         H2 title = new H2("IMSR Webapp");
         
-        // Hook button directly to the Swing File Chooser trigger
-        Button processButton = new Button("SELECT IMSR PDFs", e -> openFileChooser());
-        processButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        // --- NATIVE VAADIN MULTI-FILE UPLOAD SETUP ---
+        MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
+        Upload upload = new Upload(buffer);
+        upload.setAcceptedFileTypes(".pdf");
+        upload.setMaxFileSize(50 * 1024 * 1024); // 50MB limit per file
+        upload.setMaxFiles(100);                 // Allow multiple files selection
         
-        HorizontalLayout topBar = new HorizontalLayout(title, processButton);
+        // Custom upload button styling to match your theme
+        Button uploadButton = new Button("SELECT IMSR PDFs");
+        uploadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        upload.setUploadButton(uploadButton);
+
+        // Handle each successfully uploaded file stream from the multi-buffer map
+        upload.addSucceededListener(event -> {
+            String fileName = event.getFileName();
+            try {
+                InputStream inputStream = buffer.getInputStream(fileName);
+                if (inputStream != null) {
+                    File tempDir = new File(System.getProperty("java.io.tmpdir"), "imsr_uploads");
+                    if (!tempDir.exists()) {
+                        tempDir.mkdirs();
+                    }
+                    
+                    File targetFile = new File(tempDir, fileName);
+                    try (FileOutputStream outputStream = new FileOutputStream(targetFile)) {
+                        byte[] bufferBytes = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = inputStream.read(bufferBytes)) != -1) {
+                            outputStream.write(bufferBytes, 0, bytesRead);
+                        }
+                    }
+                    // Add safely to our active batch list
+                    synchronized (uploadedBatchFiles) {
+                        uploadedBatchFiles.add(targetFile);
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        // Trigger processing automatically once all queued files finish uploading
+        upload.addAllFinishedListener(event -> {
+            File[] fileArray;
+            synchronized (uploadedBatchFiles) {
+                fileArray = uploadedBatchFiles.toArray(new File[0]);
+                uploadedBatchFiles.clear(); // Clear for next batch
+            }
+            
+            if (fileArray.length > 0) {
+                runAggregationOnFiles(fileArray);
+            }
+        });
+
+        HorizontalLayout topBar = new HorizontalLayout(title, upload);
         topBar.setAlignItems(Alignment.CENTER);
         topBar.setWidthFull();
         topBar.setJustifyContentMode(JustifyContentMode.BETWEEN);
@@ -73,13 +125,23 @@ public class MainView extends VerticalLayout {
 
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> updateContent(event.getSelectedTab()));
+//        // Clear the upload notification list automatically the moment you look at your results tabs
+//        tabs.addSelectedChangeListener(event -> {
+//            updateContent(event.getSelectedTab());
+//            
+//            // If we are looking at any tab other than empty states, wipe the upload widget queue
+//            if (!event.getSelectedTab().equals(tabConsole)) { // or trigger anytime you switch
+//                upload.getElement().executeJs("this.files = [];");
+//            }
+//        });
+
 
         contentArea.setSizeFull();
         add(tabs, contentArea);
 
         consoleOutput.setSizeFull();
         consoleOutput.setReadOnly(true);
-        consoleOutput.setValue("System ready, click 'SELECT IMSR PDFs' \n");
+        consoleOutput.setValue("System ready, select or drop IMSR PDFs using the upload component above.\n");
         
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
@@ -90,12 +152,12 @@ public class MainView extends VerticalLayout {
         area.setSizeFull();
         setFlexGrow(1, area);
         area.setReadOnly(true);
-        area.setValue("No results. Click 'SELECT IMSR PDFs' to process files.");
+        area.setValue("No results. Upload IMSR PDFs to process files.");
         return area;
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
-    	// 1. Rename, deduplicate, and sort files cleanly first!
+        // 1. Rename, deduplicate, and sort files cleanly first!
         pdfFiles = prepareAndCleanFiles(pdfFiles);
         
         // --- CLEAR PREVIOUS UI DATA AREAS ---
@@ -122,18 +184,24 @@ public class MainView extends VerticalLayout {
         try {
             if (pdfFiles != null && pdfFiles.length > 0) {
                 
-            	// --- CROSS-PLATFORM TEMP DIRECTORY SETUP ---
-            	File baseDir = new File(System.getProperty("java.io.tmpdir"), "imsr_processing");
-            	rawFolder = new File(baseDir, "raw");
-            	simple2Folder = new File(baseDir, "simple2");
+            	// Determine base directory dynamically from selected files or fallback
+                File baseDir = pdfFiles[0].getParentFile();
+                rawFolder = new File(baseDir, "raw");
+                simple2Folder = new File(baseDir, "simple2");
 
-            	// Ensure directory hierarchy exists on both Windows and Render Linux
-            	if (!rawFolder.exists()) {
-            	    rawFolder.mkdirs();
-            	}
-            	if (!simple2Folder.exists()) {
-            	    simple2Folder.mkdirs();
-            	}
+                if (!baseDir.exists() || (!new File(baseDir, "raw").exists())) {
+                    baseDir = new File("C:\\atest");
+                    rawFolder = new File(baseDir, "raw");
+                    simple2Folder = new File(baseDir, "simple2");
+                }
+
+                // --- FIX: ENSURE RAW AND SIMPLE2 FOLDERS EXIST ---
+                if (!rawFolder.exists()) {
+                    rawFolder.mkdirs();
+                }
+                if (!simple2Folder.exists()) {
+                    simple2Folder.mkdirs();
+                }
 
                 // Convert the newly selected PDFs (this overwrites matching names automatically)
                 Utility.convert_pdf_to_text_files(pdfFiles, "both");
@@ -215,7 +283,7 @@ public class MainView extends VerticalLayout {
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
-        	// CLEANUP: Delete text files and folders immediately when done
+            // CLEANUP: Delete text files and folders immediately when done
             try {
                 if (rawFolder != null && rawFolder.exists()) {
                     File[] files = rawFolder.listFiles();
@@ -417,68 +485,5 @@ public class MainView extends VerticalLayout {
         } else if (selectedTab.equals(tabConsole)) {
             contentArea.add(consoleOutput);
         }
-    }
-    
-    private void openFileChooser() {
-        // Capture the current Vaadin UI instance safely from the request thread
-        com.vaadin.flow.component.UI currentUi = com.vaadin.flow.component.UI.getCurrent();
-
-        // Ensure Swing runs safely on a thread
-        SwingUtilities.invokeLater(() -> {
-            try {
-                // Set look and feel to native OS style
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
-
-            // Create an invisible, always-on-top frame to force the dialog to the front
-            javax.swing.JFrame dummyFrame = new javax.swing.JFrame();
-            dummyFrame.setAlwaysOnTop(true);
-            dummyFrame.setVisible(false);
-
-            JFileChooser fileChooser = new JFileChooser("C:\\");
-            fileChooser.setDialogTitle("Select IMSR PDF Reports");
-            fileChooser.setMultiSelectionEnabled(true);
-
-            // Custom FileFilter extending javax.swing.filechooser.FileFilter properly
-            fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
-                @Override
-                public boolean accept(File f) {
-                    if (f.isDirectory()) {
-                        return true;
-                    }
-                    
-                    String name = f.getName();
-                    if (!name.toLowerCase().endsWith(".pdf")) {
-                        return false;
-                    }
-
-                    // Format 1: Starts with 8 digits followed by "IMSR", then optional trailing text, ending in .pdf
-                    boolean format1 = java.util.regex.Pattern.compile("^\\d{8}IMSR.*\\.pdf$", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(name).matches();
-                    // Format 2: Contains "IMSR" followed by an exact 8-digit sequence, then optional trailing text, ending in .pdf
-                    boolean format2 = java.util.regex.Pattern.compile(".*IMSR.*\\d{8}.*\\.pdf$", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(name).matches();
-                    return format1 || format2;
-                }
-
-                @Override
-                public String getDescription() {
-                    return "Valid IMSR PDFs (YYYYMMDDIMSR or IMSR with 8-digit date)";
-                }
-            });
-
-            int userSelection = fileChooser.showOpenDialog(dummyFrame);
-
-            if (userSelection == JFileChooser.APPROVE_OPTION) {
-                File[] selectedFiles = fileChooser.getSelectedFiles();
-                if (selectedFiles.length > 0 && currentUi != null) {
-                    // Use ui.access to safely acquire the Vaadin session lock from the Swing thread
-                    currentUi.access(() -> {
-                        runAggregationOnFiles(selectedFiles);
-                    });
-                }
-            }
-            
-            // Clean up the dummy frame
-            dummyFrame.dispose();
-        });
     }
 }
