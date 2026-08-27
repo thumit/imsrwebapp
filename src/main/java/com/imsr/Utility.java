@@ -1,83 +1,93 @@
 package com.imsr;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import com.imsr.core.FilesHandle;
 
 public class Utility {
-    
-    // Converted to accept files directly from your Vaadin web upload
+
     public static void convert_pdf_to_text_files(File[] files, String convertOption) {
         if (files != null && files.length > 0) {
-            String inputFolder = files[0].getParentFile().toString();
+            String inputFolder = files[0].getParentFile().getAbsolutePath();
             boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
             File pdftotext_exe_target_file = null;
-            
-            // Only extract local pdftotext.exe if running on Windows
+
             if (isWindows) {
                 Path targetDirectory = Paths.get(inputFolder + File.separator + "pdftotext.exe");
                 pdftotext_exe_target_file = FilesHandle.getResourceFile("pdftotext.exe", targetDirectory);
             }
-            
+
             if ("both".equals(convertOption)) {
                 run_command(inputFolder, files, "simple2");
                 run_command(inputFolder, files, "raw");
             } else {
                 run_command(inputFolder, files, convertOption);
             }
-            
-            // Clean up temporary Windows executable if it was extracted
+
             if (pdftotext_exe_target_file != null && pdftotext_exe_target_file.exists()) {
                 pdftotext_exe_target_file.delete();
             }
         }
     }
-    
-    public static void run_command(String inputFolder, File[] file, String corvert_option) {
-        final File directory = new File(inputFolder);
-        final File out_directory = new File(inputFolder + File.separator + corvert_option);
-        if (!out_directory.exists()) {
-            out_directory.mkdirs();
+
+    public static void run_command(String inputFolder, File[] files, String convertOption) {
+        File outDirectory = new File(inputFolder, convertOption);
+        if (!outDirectory.exists()) {
+            outDirectory.mkdirs();
         }
-        
+
         boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-        int number_files_per_thread = 30;
-        int number_of_splits = file.length / number_files_per_thread;
         
-        for (int i = 0; i <= number_of_splits; i++) {
-            String batch_command = "cd " + inputFolder;
-            for (int j = 0; j < number_files_per_thread; j++) {
-                if (number_files_per_thread * i + j < file.length) {
-                    String fileName = file[number_files_per_thread * i + j].getName();
-                    String txtName = fileName.replace(".pdf", ".txt");
-                    
-                    // Cross-platform binary and path separator handling
-                    String executable = isWindows ? "pdftotext" : "pdftotext";
-                    String outputPath = corvert_option + "/" + txtName;
-                    
-                    batch_command = String.join(" && ", batch_command, 
-                        executable + " -" + corvert_option + " " + fileName + " " + outputPath);
-                }
+        // Resolve absolute binary path for Windows (extracted local exe) vs Linux (installed poppler utility)
+        String executable = isWindows 
+                ? new File(inputFolder, "pdftotext.exe").getAbsolutePath() 
+                : "pdftotext";
+
+        for (File pdfFile : files) {
+            String fileName = pdfFile.getName();
+            String txtName = fileName.replaceAll("(?i)\\.pdf$", ".txt");
+            File outputFile = new File(outDirectory, txtName);
+
+            List<String> command = new ArrayList<>();
+            command.add(executable);
+
+            // pdftotext CLI options mapping:
+            // "simple2" uses layout preservation; "raw" uses raw layout/stream order
+            if ("simple2".equals(convertOption)) {
+                command.add("-layout");
+            } else if ("raw".equals(convertOption)) {
+                command.add("-raw");
             }
-            
-            final String cmd = batch_command;
-            ProcessBuilder builder = new ProcessBuilder();
-            
-            // Branch process execution based on OS
-            if (isWindows) {
-                builder.command("cmd.exe", "/c", cmd);
-            } else {
-                builder.command("sh", "-c", cmd);
-            }
-            
-            builder = builder.directory(directory);
+
+            command.add(pdfFile.getAbsolutePath());
+            command.add(outputFile.getAbsolutePath());
+
+            ProcessBuilder builder = new ProcessBuilder(command);
             builder.redirectErrorStream(true);
+
             try {
                 Process p = builder.start();
-                p.waitFor();
+                
+                // Read and output stream to capture errors in Render logs
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[pdftotext]: " + line);
+                    }
+                }
+
+                int exitCode = p.waitFor();
+                if (exitCode != 0) {
+                    System.err.println("pdftotext failed for " + pdfFile.getName() + " with exit code: " + exitCode);
+                }
             } catch (IOException | InterruptedException e) {
+                System.err.println("Execution exception during conversion of: " + pdfFile.getName());
                 e.printStackTrace();
             }
         }
