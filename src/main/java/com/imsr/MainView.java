@@ -122,8 +122,8 @@ public class MainView extends VerticalLayout {
         try {
             if (pdfFiles != null && pdfFiles.length > 0) {
                 
-                // Determine base directory dynamically from selected files or fallback
-                File baseDir = pdfFiles[0].getParentFile();
+            	// --- CROSS-PLATFORM TEMP DIRECTORY FIX ---
+            	File baseDir = new File(System.getProperty("java.io.tmpdir"), "imsr_processing");
                 rawFolder = new File(baseDir, "raw");
                 simple2Folder = new File(baseDir, "simple2");
 
