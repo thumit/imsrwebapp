@@ -1,6 +1,7 @@
 package com.imsr;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -8,11 +9,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -46,13 +52,13 @@ public class MainView extends VerticalLayout {
     private final Tabs tabs = new Tabs(tabNational, tabGacc, tabWildfire, tabResource, tabConsole);
     private final TextArea consoleOutput = new TextArea();
 
-    // Replaced TextAreas with dynamic Vaadin Grids
+    // Dynamic Vaadin Grids
     private final Grid<String[]> nationalGrid = createGrid();
     private final Grid<String[]> gaccGrid = createGrid();
     private final Grid<String[]> wildfireGrid = createGrid();
     private final Grid<String[]> resourceGrid = createGrid();
 
-    // Raw TSV storage for export file generation
+    // Raw data storage for exports
     private String nationalTsvData = "";
     private String gaccTsvData = "";
     private String wildfireTsvData = "";
@@ -176,7 +182,7 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private VerticalLayout buildDataView(String titleText, Grid<String[]> grid, String headerTitle, String[] headers, String rawTsvData) {
+    private VerticalLayout buildDataView(String titleText, Grid<String[]> grid, String headerTitle, String[] headers, String rawData) {
         VerticalLayout layout = new VerticalLayout();
         layout.setSizeFull();
         layout.setPadding(false);
@@ -184,22 +190,24 @@ public class MainView extends VerticalLayout {
 
         H2 header = new H2(titleText);
 
-        // Export TSV Button
-        Button downloadTsvBtn = new Button("Export TSV", new Icon(VaadinIcon.DOWNLOAD));
-        downloadTsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+        // Export Excel (.xlsx) Button
+        Button downloadExcelBtn = new Button("Export Excel", new Icon(VaadinIcon.FILE_TABLE));
+        downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
 
-        StreamResource tsvResource = new StreamResource(headerTitle.toLowerCase().replace(" ", "_") + ".tsv",
-                () -> new ByteArrayInputStream(rawTsvData.getBytes(StandardCharsets.UTF_8)));
+        String excelFileName = headerTitle.toLowerCase().replace(" ", "_") + ".xlsx";
+        StreamResource excelResource = new StreamResource(excelFileName,
+                () -> convertDataToExcelStream(rawData));
+        excelResource.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-        Anchor downloadTsvAnchor = new Anchor(tsvResource, "");
-        downloadTsvAnchor.setTarget("_blank");
-        downloadTsvAnchor.add(downloadTsvBtn);
+        Anchor downloadExcelAnchor = new Anchor(excelResource, "");
+        downloadExcelAnchor.getElement().setAttribute("download", true);
+        downloadExcelAnchor.add(downloadExcelBtn);
 
         // Export CSV Button
-        Button downloadCsvBtn = new Button("Export CSV", new Icon(VaadinIcon.FILE_TABLE));
+        Button downloadCsvBtn = new Button("Export CSV", new Icon(VaadinIcon.DOWNLOAD));
         downloadCsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        String csvData = rawTsvData.replace("\t", ",");
+        String csvData = rawData.replace("\t", ",");
         StreamResource csvResource = new StreamResource(headerTitle.toLowerCase().replace(" ", "_") + ".csv",
                 () -> new ByteArrayInputStream(csvData.getBytes(StandardCharsets.UTF_8)));
 
@@ -207,7 +215,7 @@ public class MainView extends VerticalLayout {
         downloadCsvAnchor.setTarget("_blank");
         downloadCsvAnchor.add(downloadCsvBtn);
 
-        HorizontalLayout toolbar = new HorizontalLayout(header, new HorizontalLayout(downloadTsvAnchor, downloadCsvAnchor));
+        HorizontalLayout toolbar = new HorizontalLayout(header, new HorizontalLayout(downloadExcelAnchor, downloadCsvAnchor));
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
@@ -215,6 +223,42 @@ public class MainView extends VerticalLayout {
         layout.add(toolbar, grid);
         layout.setFlexGrow(1, grid);
         return layout;
+    }
+
+    private InputStream convertDataToExcelStream(String rawData) {
+        if (rawData == null || rawData.trim().isEmpty()) {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+        
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            Sheet sheet = workbook.createSheet("Data");
+            String[] lines = rawData.split("\n");
+
+            for (int i = 0; i < lines.length; i++) {
+                Row row = sheet.createRow(i);
+                String[] cells = lines[i].split("\t", -1);
+                for (int j = 0; j < cells.length; j++) {
+                    Cell cell = row.createCell(j);
+                    cell.setCellValue(cells[j]);
+                }
+            }
+
+            // Auto-size columns for better readability
+            if (lines.length > 0) {
+                int colCount = lines[0].split("\t", -1).length;
+                for (int col = 0; col < colCount; col++) {
+                    sheet.autoSizeColumn(col);
+                }
+            }
+
+            workbook.write(out);
+            return new ByteArrayInputStream(out.toByteArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ByteArrayInputStream(new byte[0]);
+        }
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
@@ -278,7 +322,7 @@ public class MainView extends VerticalLayout {
                         nationalContent.append(String.join("\t", header1)).append("\n");
 
                         for (IMSR_Process ismr : processedArray) {
-                        	nationalRows.add(ismr.national_activity.toArray(new String[0]));
+                            nationalRows.add(ismr.national_activity.toArray(new String[0]));
                             nationalContent.append(String.join("\t", ismr.national_activity)).append("\n");
                         }
                         nationalGrid.setItems(nationalRows);
