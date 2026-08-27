@@ -1,11 +1,14 @@
 package com.imsr;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -13,7 +16,12 @@ import java.util.UUID;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
@@ -22,6 +30,7 @@ import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 
 @Route("")
 public class MainView extends VerticalLayout {
@@ -37,10 +46,17 @@ public class MainView extends VerticalLayout {
     private final Tabs tabs = new Tabs(tabNational, tabGacc, tabWildfire, tabResource, tabConsole);
     private final TextArea consoleOutput = new TextArea();
 
-    private final TextArea nationalDataArea = createDataTextArea();
-    private final TextArea gaccDataArea = createDataTextArea();
-    private final TextArea wildfireDataArea = createDataTextArea();
-    private final TextArea resourceDataArea = createDataTextArea();
+    // Replaced TextAreas with dynamic Vaadin Grids
+    private final Grid<String[]> nationalGrid = createGrid();
+    private final Grid<String[]> gaccGrid = createGrid();
+    private final Grid<String[]> wildfireGrid = createGrid();
+    private final Grid<String[]> resourceGrid = createGrid();
+
+    // Raw TSV storage for export file generation
+    private String nationalTsvData = "";
+    private String gaccTsvData = "";
+    private String wildfireTsvData = "";
+    private String resourceTsvData = "";
 
     private final String[] header1 = new String[] { "imsr_date", "preparedness_level", "initial_attack_activity",
             "new_fires", "new_large_fires", "contained_large_fires", "uncontained_large_fires", "area_command_teams", "nimos", "type_1_teams", "type_2_teams", "fire_use_teams", "complex_teams" };
@@ -55,6 +71,10 @@ public class MainView extends VerticalLayout {
     private File currentBatchDir = null;
 
     public MainView() {
+        setSizeFull();
+        setPadding(true);
+        setSpacing(true);
+
         H2 title = new H2("IMSR Webapp");
 
         MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
@@ -63,7 +83,7 @@ public class MainView extends VerticalLayout {
         upload.setMaxFileSize(50 * 1024 * 1024); // 50MB limit per file
         upload.setMaxFiles(100);
 
-        Button uploadButton = new Button("SELECT IMSR PDFs");
+        Button uploadButton = new Button("SELECT IMSR PDFs", new Icon(VaadinIcon.UPLOAD));
         uploadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         upload.setUploadButton(uploadButton);
 
@@ -72,7 +92,6 @@ public class MainView extends VerticalLayout {
             try {
                 InputStream inputStream = buffer.getInputStream(fileName);
                 if (inputStream != null) {
-                    // Unique session folder prevents concurrent user conflicts
                     synchronized (this) {
                         if (currentBatchDir == null) {
                             String sessionFolderName = "imsr_batch_" + UUID.randomUUID().toString();
@@ -108,7 +127,6 @@ public class MainView extends VerticalLayout {
                 uploadedBatchFiles.clear();
             }
             
-            // Reset current batch container for next submission batch
             synchronized (this) {
                 currentBatchDir = null;
             }
@@ -128,6 +146,7 @@ public class MainView extends VerticalLayout {
         tabs.addSelectedChangeListener(event -> updateContent(event.getSelectedTab()));
 
         contentArea.setSizeFull();
+        contentArea.setPadding(false);
         add(tabs, contentArea);
 
         consoleOutput.setSizeFull();
@@ -138,22 +157,69 @@ public class MainView extends VerticalLayout {
         updateContent(tabConsole);
     }
 
-    private TextArea createDataTextArea() {
-        TextArea area = new TextArea();
-        area.setSizeFull();
-        setFlexGrow(1, area);
-        area.setReadOnly(true);
-        area.setValue("No results. Upload IMSR PDFs to process files.");
-        return area;
+    private Grid<String[]> createGrid() {
+        Grid<String[]> grid = new Grid<>();
+        grid.setSizeFull();
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COLUMN_BORDERS, GridVariant.LUMO_COMPACT);
+        return grid;
+    }
+
+    private void configureGridColumns(Grid<String[]> grid, String[] headers) {
+        grid.removeAllColumns();
+        for (int i = 0; i < headers.length; i++) {
+            final int colIndex = i;
+            grid.addColumn(row -> colIndex < row.length ? row[colIndex] : "")
+                .setHeader(headers[colIndex])
+                .setSortable(true)
+                .setAutoWidth(true)
+                .setResizable(true);
+        }
+    }
+
+    private VerticalLayout buildDataView(String titleText, Grid<String[]> grid, String headerTitle, String[] headers, String rawTsvData) {
+        VerticalLayout layout = new VerticalLayout();
+        layout.setSizeFull();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+
+        H2 header = new H2(titleText);
+
+        // Export TSV Button
+        Button downloadTsvBtn = new Button("Export TSV", new Icon(VaadinIcon.DOWNLOAD));
+        downloadTsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+
+        StreamResource tsvResource = new StreamResource(headerTitle.toLowerCase().replace(" ", "_") + ".tsv",
+                () -> new ByteArrayInputStream(rawTsvData.getBytes(StandardCharsets.UTF_8)));
+
+        Anchor downloadTsvAnchor = new Anchor(tsvResource, "");
+        downloadTsvAnchor.setTarget("_blank");
+        downloadTsvAnchor.add(downloadTsvBtn);
+
+        // Export CSV Button
+        Button downloadCsvBtn = new Button("Export CSV", new Icon(VaadinIcon.FILE_TABLE));
+        downloadCsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        String csvData = rawTsvData.replace("\t", ",");
+        StreamResource csvResource = new StreamResource(headerTitle.toLowerCase().replace(" ", "_") + ".csv",
+                () -> new ByteArrayInputStream(csvData.getBytes(StandardCharsets.UTF_8)));
+
+        Anchor downloadCsvAnchor = new Anchor(csvResource, "");
+        downloadCsvAnchor.setTarget("_blank");
+        downloadCsvAnchor.add(downloadCsvBtn);
+
+        HorizontalLayout toolbar = new HorizontalLayout(header, new HorizontalLayout(downloadTsvAnchor, downloadCsvAnchor));
+        toolbar.setWidthFull();
+        toolbar.setAlignItems(Alignment.CENTER);
+        toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
+
+        layout.add(toolbar, grid);
+        layout.setFlexGrow(1, grid);
+        return layout;
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
         pdfFiles = prepareAndCleanFiles(pdfFiles);
 
-        nationalDataArea.setValue("");
-        gaccDataArea.setValue("");
-        wildfireDataArea.setValue("");
-        resourceDataArea.setValue("");
         consoleOutput.setValue("");
 
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
@@ -206,46 +272,69 @@ public class MainView extends VerticalLayout {
                         IMSR_Process[] processedArray = processedList.toArray(new IMSR_Process[0]);
 
                         // --- NATIONAL ACTIVITY ---
+                        configureGridColumns(nationalGrid, header1);
+                        List<String[]> nationalRows = new ArrayList<>();
                         StringBuilder nationalContent = new StringBuilder();
                         nationalContent.append(String.join("\t", header1)).append("\n");
+
                         for (IMSR_Process ismr : processedArray) {
+                        	nationalRows.add(ismr.national_activity.toArray(new String[0]));
                             nationalContent.append(String.join("\t", ismr.national_activity)).append("\n");
                         }
-                        nationalDataArea.setValue(nationalContent.toString());
+                        nationalGrid.setItems(nationalRows);
+                        nationalTsvData = nationalContent.toString();
 
                         // --- GACC ACTIVITY ---
+                        configureGridColumns(gaccGrid, header2);
+                        List<String[]> gaccRows = new ArrayList<>();
                         StringBuilder gaccContent = new StringBuilder();
                         gaccContent.append(String.join("\t", header2)).append("\n");
+
                         for (IMSR_Process ismr : processedArray) {
                             for (String st : ismr.gacc_activity) {
+                                String[] row = st.split("\t");
+                                gaccRows.add(row);
                                 gaccContent.append(st).append("\n");
                             }
                         }
-                        gaccDataArea.setValue(gaccContent.toString());
+                        gaccGrid.setItems(gaccRows);
+                        gaccTsvData = gaccContent.toString();
 
                         // --- RESOURCE SUMMARY ---
+                        configureGridColumns(resourceGrid, header4);
+                        List<String[]> resourceRows = new ArrayList<>();
                         StringBuilder resourceContent = new StringBuilder();
                         resourceContent.append(String.join("\t", header4)).append("\n");
+
                         for (IMSR_Process ismr : processedArray) {
                             for (String st : ismr.resource_summary) {
+                                String[] row = st.split("\t");
+                                resourceRows.add(row);
                                 resourceContent.append(st).append("\n");
                             }
                         }
-                        resourceDataArea.setValue(resourceContent.toString());
+                        resourceGrid.setItems(resourceRows);
+                        resourceTsvData = resourceContent.toString();
 
                         // --- WILDFIRE ACTIVITY ---
+                        configureGridColumns(wildfireGrid, header3);
                         List<String> final_fires = new ArrayList<>();
                         for (IMSR_Process ismr : processedArray) {
                             final_fires.addAll(ismr.final_fires);
                         }
                         fix_ctd(final_fires);
 
+                        List<String[]> wildfireRows = new ArrayList<>();
                         StringBuilder wildfireContent = new StringBuilder();
                         wildfireContent.append(String.join("\t", header3)).append("\n");
+
                         for (String fire : final_fires) {
+                            String[] row = fire.split("\t");
+                            wildfireRows.add(row);
                             wildfireContent.append(fire).append("\n");
                         }
-                        wildfireDataArea.setValue(wildfireContent.toString());
+                        wildfireGrid.setItems(wildfireRows);
+                        wildfireTsvData = wildfireContent.toString();
 
                     } else {
                         System.out.println("ERROR: No matching text files found for selection.");
@@ -259,7 +348,6 @@ public class MainView extends VerticalLayout {
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
-            // Secure operational cleanup
             try {
                 if (rawFolder != null && rawFolder.exists()) {
                     File[] files = rawFolder.listFiles();
@@ -318,7 +406,6 @@ public class MainView extends VerticalLayout {
                 File targetFile = new File(file.getParentFile(), newFileName);
 
                 if (!targetFile.exists()) {
-                    // NIO Files.move ensures cross-filesystem moving support on Linux environments
                     try {
                         Files.move(file.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         sortedUniqueFiles.put(dateKey, targetFile);
@@ -340,14 +427,12 @@ public class MainView extends VerticalLayout {
     }
 
     private String extractDateString(String fileName) {
-        // Handle standardized files: YYYYMMDDIMSR.pdf
         java.util.regex.Pattern alreadyCleanPattern = java.util.regex.Pattern.compile("^(\\d{8})IMSR");
         java.util.regex.Matcher cleanMatcher = alreadyCleanPattern.matcher(fileName);
         if (cleanMatcher.find()) {
             return cleanMatcher.group(1);
         }
 
-        // Handle raw naming variants
         String parseName = fileName;
         if (parseName.contains("IMSR")) {
             parseName = parseName.substring(parseName.indexOf("IMSR"));
@@ -364,12 +449,10 @@ public class MainView extends VerticalLayout {
             return yyyy + mm + dd;
         }
 
-        // Fallback: Return filename without extension if regex misses
         return fileName.replaceAll("(?i)\\.pdf$", "");
     }
 
     private void fix_ctd(List<String> final_fires) {
-        String raw_number_record_list = "";
         for (int i = 0; i < final_fires.size(); i++) {
             String[] fs = final_fires.get(i).split("\t");
             if (fs.length <= 19) continue;
@@ -448,13 +531,13 @@ public class MainView extends VerticalLayout {
         contentArea.removeAll();
 
         if (selectedTab.equals(tabNational)) {
-            contentArea.add(new H2("National Activity Data"), nationalDataArea);
+            contentArea.add(buildDataView("National Activity Data", nationalGrid, "national_activity", header1, nationalTsvData));
         } else if (selectedTab.equals(tabGacc)) {
-            contentArea.add(new H2("GACC Activity Data"), gaccDataArea);
+            contentArea.add(buildDataView("GACC Activity Data", gaccGrid, "gacc_activity", header2, gaccTsvData));
         } else if (selectedTab.equals(tabWildfire)) {
-            contentArea.add(new H2("Wildfire Activity Data"), wildfireDataArea);
+            contentArea.add(buildDataView("Wildfire Activity Data", wildfireGrid, "wildfire_activity", header3, wildfireTsvData));
         } else if (selectedTab.equals(tabResource)) {
-            contentArea.add(new H2("Resource Summary Data"), resourceDataArea);
+            contentArea.add(buildDataView("Resource Summary Data", resourceGrid, "resource_summary", header4, resourceTsvData));
         } else if (selectedTab.equals(tabConsole)) {
             contentArea.add(consoleOutput);
         }

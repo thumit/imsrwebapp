@@ -60,7 +60,7 @@ public class Utility {
             // pdftotext CLI options mapping:
             // "simple2" uses layout preservation; "raw" uses raw layout/stream order
             if ("simple2".equals(convertOption)) {
-                command.add("-layout");
+                command.add("-simple2");
             } else if ("raw".equals(convertOption)) {
                 command.add("-raw");
             }
