@@ -3,10 +3,13 @@ package com.imsr;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -34,13 +37,11 @@ public class MainView extends VerticalLayout {
     private final Tabs tabs = new Tabs(tabNational, tabGacc, tabWildfire, tabResource, tabConsole);
     private final TextArea consoleOutput = new TextArea();
 
-    // Data text areas for your 4 output categories
     private final TextArea nationalDataArea = createDataTextArea();
     private final TextArea gaccDataArea = createDataTextArea();
     private final TextArea wildfireDataArea = createDataTextArea();
     private final TextArea resourceDataArea = createDataTextArea();
 
-    // Headers corresponding to your extraction logic
     private final String[] header1 = new String[] { "imsr_date", "preparedness_level", "initial_attack_activity",
             "new_fires", "new_large_fires", "contained_large_fires", "uncontained_large_fires", "area_command_teams", "nimos", "type_1_teams", "type_2_teams", "fire_use_teams", "complex_teams" };
     private final String[] header2 = new String[] { "imsr_date", "gacc", "gacc_priority", "preparedness_level", "new_fires",
@@ -50,43 +51,39 @@ public class MainView extends VerticalLayout {
             "engines", "helicopters", "structures_lost", "cost_to_date", "origin_ownership" };
     private final String[] header4 = new String[] { "imsr_date", "gacc", "incidents", "cumulative_size", "crews", "engines", "helicopters", "personnel", "personnel_change", "preparedness_level" };
 
-    // Keep track of uploaded files in a temporary batch list
     private final List<File> uploadedBatchFiles = new ArrayList<>();
+    private File currentBatchDir = null;
 
     public MainView() {
-//        setSizeFull();
-//        setPadding(true);
-//        setSpacing(true);
-//        setFlexGrow(1, contentArea);
-//        setMinHeight("0px");
-//        setMaxHeight("300px");
-
         H2 title = new H2("IMSR Webapp");
-        
-        // --- NATIVE VAADIN MULTI-FILE UPLOAD SETUP ---
+
         MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
         Upload upload = new Upload(buffer);
         upload.setAcceptedFileTypes(".pdf");
         upload.setMaxFileSize(50 * 1024 * 1024); // 50MB limit per file
-        upload.setMaxFiles(100);                 // Allow multiple files selection
-        
-        // Custom upload button styling to match your theme
+        upload.setMaxFiles(100);
+
         Button uploadButton = new Button("SELECT IMSR PDFs");
         uploadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         upload.setUploadButton(uploadButton);
 
-        // Handle each successfully uploaded file stream from the multi-buffer map
         upload.addSucceededListener(event -> {
             String fileName = event.getFileName();
             try {
                 InputStream inputStream = buffer.getInputStream(fileName);
                 if (inputStream != null) {
-                    File tempDir = new File(System.getProperty("java.io.tmpdir"), "imsr_uploads");
-                    if (!tempDir.exists()) {
-                        tempDir.mkdirs();
+                    // Unique session folder prevents concurrent user conflicts
+                    synchronized (this) {
+                        if (currentBatchDir == null) {
+                            String sessionFolderName = "imsr_batch_" + UUID.randomUUID().toString();
+                            currentBatchDir = new File(System.getProperty("java.io.tmpdir"), sessionFolderName);
+                            if (!currentBatchDir.exists()) {
+                                currentBatchDir.mkdirs();
+                            }
+                        }
                     }
-                    
-                    File targetFile = new File(tempDir, fileName);
+
+                    File targetFile = new File(currentBatchDir, fileName);
                     try (FileOutputStream outputStream = new FileOutputStream(targetFile)) {
                         byte[] bufferBytes = new byte[4096];
                         int bytesRead;
@@ -94,7 +91,7 @@ public class MainView extends VerticalLayout {
                             outputStream.write(bufferBytes, 0, bytesRead);
                         }
                     }
-                    // Add safely to our active batch list
+
                     synchronized (uploadedBatchFiles) {
                         uploadedBatchFiles.add(targetFile);
                     }
@@ -104,14 +101,18 @@ public class MainView extends VerticalLayout {
             }
         });
 
-        // Trigger processing automatically once all queued files finish uploading
         upload.addAllFinishedListener(event -> {
             File[] fileArray;
             synchronized (uploadedBatchFiles) {
                 fileArray = uploadedBatchFiles.toArray(new File[0]);
-                uploadedBatchFiles.clear(); // Clear for next batch
+                uploadedBatchFiles.clear();
             }
             
+            // Reset current batch container for next submission batch
+            synchronized (this) {
+                currentBatchDir = null;
+            }
+
             if (fileArray.length > 0) {
                 runAggregationOnFiles(fileArray);
             }
@@ -125,16 +126,6 @@ public class MainView extends VerticalLayout {
 
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> updateContent(event.getSelectedTab()));
-//        // Clear the upload notification list automatically the moment you look at your results tabs
-//        tabs.addSelectedChangeListener(event -> {
-//            updateContent(event.getSelectedTab());
-//            
-//            // If we are looking at any tab other than empty states, wipe the upload widget queue
-//            if (!event.getSelectedTab().equals(tabConsole)) { // or trigger anytime you switch
-//                upload.getElement().executeJs("this.files = [];");
-//            }
-//        });
-
 
         contentArea.setSizeFull();
         add(tabs, contentArea);
@@ -142,7 +133,7 @@ public class MainView extends VerticalLayout {
         consoleOutput.setSizeFull();
         consoleOutput.setReadOnly(true);
         consoleOutput.setValue("System ready, select or drop IMSR PDFs using the upload component above.\n");
-        
+
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
     }
@@ -157,17 +148,14 @@ public class MainView extends VerticalLayout {
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
-        // 1. Rename, deduplicate, and sort files cleanly first!
         pdfFiles = prepareAndCleanFiles(pdfFiles);
-        
-        // --- CLEAR PREVIOUS UI DATA AREAS ---
+
         nationalDataArea.setValue("");
         gaccDataArea.setValue("");
         wildfireDataArea.setValue("");
         resourceDataArea.setValue("");
         consoleOutput.setValue("");
 
-        // Capture standard output and error to grab live prints during processing
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
         java.io.PrintStream ps = new java.io.PrintStream(baos);
         java.io.PrintStream oldOut = System.out;
@@ -176,26 +164,17 @@ public class MainView extends VerticalLayout {
         System.setErr(ps);
 
         StringBuilder logBuilder = new StringBuilder();
-        
-     // Keep track of folders so we can clean them up securely
+
         File rawFolder = null;
         File simple2Folder = null;
+        File baseDir = null;
 
         try {
             if (pdfFiles != null && pdfFiles.length > 0) {
-                
-            	// Determine base directory dynamically from selected files or fallback
-                File baseDir = pdfFiles[0].getParentFile();
+                baseDir = pdfFiles[0].getParentFile();
                 rawFolder = new File(baseDir, "raw");
                 simple2Folder = new File(baseDir, "simple2");
 
-                if (!baseDir.exists() || (!new File(baseDir, "raw").exists())) {
-                    baseDir = new File("C:\\atest");
-                    rawFolder = new File(baseDir, "raw");
-                    simple2Folder = new File(baseDir, "simple2");
-                }
-
-                // --- FIX: ENSURE RAW AND SIMPLE2 FOLDERS EXIST ---
                 if (!rawFolder.exists()) {
                     rawFolder.mkdirs();
                 }
@@ -203,16 +182,13 @@ public class MainView extends VerticalLayout {
                     simple2Folder.mkdirs();
                 }
 
-                // Convert the newly selected PDFs (this overwrites matching names automatically)
                 Utility.convert_pdf_to_text_files(pdfFiles, "both");
 
                 if (rawFolder.exists() && simple2Folder.exists()) {
                     List<IMSR_Process> processedList = new ArrayList<>();
 
-                    // Loop ONLY through the specific PDFs you just selected
                     for (File pdfFile : pdfFiles) {
                         String pdfName = pdfFile.getName();
-                        // Change extension from .pdf to .txt to find the matching text file
                         String txtName = pdfName.substring(0, pdfName.lastIndexOf('.')) + ".txt";
 
                         File rawFile = new File(rawFolder, txtName);
@@ -229,7 +205,7 @@ public class MainView extends VerticalLayout {
                     if (!processedList.isEmpty()) {
                         IMSR_Process[] processedArray = processedList.toArray(new IMSR_Process[0]);
 
-                        // --- BUILD NATIONAL ACTIVITY ---
+                        // --- NATIONAL ACTIVITY ---
                         StringBuilder nationalContent = new StringBuilder();
                         nationalContent.append(String.join("\t", header1)).append("\n");
                         for (IMSR_Process ismr : processedArray) {
@@ -237,7 +213,7 @@ public class MainView extends VerticalLayout {
                         }
                         nationalDataArea.setValue(nationalContent.toString());
 
-                        // --- BUILD GACC ACTIVITY ---
+                        // --- GACC ACTIVITY ---
                         StringBuilder gaccContent = new StringBuilder();
                         gaccContent.append(String.join("\t", header2)).append("\n");
                         for (IMSR_Process ismr : processedArray) {
@@ -247,7 +223,7 @@ public class MainView extends VerticalLayout {
                         }
                         gaccDataArea.setValue(gaccContent.toString());
 
-                        // --- BUILD RESOURCE SUMMARY ---
+                        // --- RESOURCE SUMMARY ---
                         StringBuilder resourceContent = new StringBuilder();
                         resourceContent.append(String.join("\t", header4)).append("\n");
                         for (IMSR_Process ismr : processedArray) {
@@ -257,7 +233,7 @@ public class MainView extends VerticalLayout {
                         }
                         resourceDataArea.setValue(resourceContent.toString());
 
-                        // --- BUILD WILDFIRE ACTIVITY (with fix_ctd) ---
+                        // --- WILDFIRE ACTIVITY ---
                         List<String> final_fires = new ArrayList<>();
                         for (IMSR_Process ismr : processedArray) {
                             final_fires.addAll(ismr.final_fires);
@@ -283,32 +259,37 @@ public class MainView extends VerticalLayout {
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
-            // CLEANUP: Delete text files and folders immediately when done
+            // Secure operational cleanup
             try {
                 if (rawFolder != null && rawFolder.exists()) {
                     File[] files = rawFolder.listFiles();
                     if (files != null) {
                         for (File f : files) f.delete();
                     }
-                    rawFolder.delete(); // Delete the folder itself
+                    rawFolder.delete();
                 }
                 if (simple2Folder != null && simple2Folder.exists()) {
                     File[] files = simple2Folder.listFiles();
                     if (files != null) {
                         for (File f : files) f.delete();
                     }
-                    simple2Folder.delete(); // Delete the folder itself
+                    simple2Folder.delete();
+                }
+                if (baseDir != null && baseDir.exists()) {
+                    File[] files = baseDir.listFiles();
+                    if (files != null) {
+                        for (File f : files) f.delete();
+                    }
+                    baseDir.delete();
                 }
             } catch (Exception e) {
-                System.out.println("Warning: Could not fully clean up temporary text folders.");
+                System.out.println("Warning: Could not fully clean up temporary workspace folders.");
             }
-            
-            // Restore original system streams
+
             System.setOut(oldOut);
             System.setErr(oldErr);
         }
 
-        // Append captured logs and print completion footer
         String capturedLogs = baos.toString();
         if (!capturedLogs.isEmpty()) {
             logBuilder.append(capturedLogs);
@@ -322,8 +303,7 @@ public class MainView extends VerticalLayout {
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
     }
-    
-    
+
     private File[] prepareAndCleanFiles(File[] pdfFiles) {
         if (pdfFiles == null || pdfFiles.length == 0) return new File[0];
 
@@ -332,26 +312,23 @@ public class MainView extends VerticalLayout {
         for (File file : pdfFiles) {
             try {
                 String fileName = file.getName();
-                String dateKey = extractDateString(fileName).replace("-", ""); // produces YYYYMMDD
+                String dateKey = extractDateString(fileName).replace("-", ""); // YYYYMMDD
                 String newFileName = dateKey + "IMSR.pdf";
 
                 File targetFile = new File(file.getParentFile(), newFileName);
 
                 if (!targetFile.exists()) {
-                    // If the standardized file doesn't exist yet, rename this file to it
-                    boolean renamed = file.renameTo(targetFile);
-                    if (renamed) {
+                    // NIO Files.move ensures cross-filesystem moving support on Linux environments
+                    try {
+                        Files.move(file.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         sortedUniqueFiles.put(dateKey, targetFile);
-                    } else {
-                        // Fallback if renaming fails
+                    } catch (Exception ex) {
                         sortedUniqueFiles.putIfAbsent(dateKey, file);
                     }
                 } else {
-                    // IT'S A DUPLICATE: The target date file already exists! Delete this duplicate file from the disk so it doesn't cause processing errors.
                     if (!file.getAbsolutePath().equals(targetFile.getAbsolutePath())) {
                         file.delete();
                     }
-                    // Ensure the unique map points to the primary target file
                     sortedUniqueFiles.putIfAbsent(dateKey, targetFile);
                 }
             } catch (Exception e) {
@@ -361,46 +338,42 @@ public class MainView extends VerticalLayout {
 
         return sortedUniqueFiles.values().toArray(new File[0]);
     }
-    
-    
+
     private String extractDateString(String fileName) {
-        // Check if it's already in the clean format: YYYYMMDDIMSR (e.g., 20260619IMSR.pdf)
+        // Handle standardized files: YYYYMMDDIMSR.pdf
         java.util.regex.Pattern alreadyCleanPattern = java.util.regex.Pattern.compile("^(\\d{8})IMSR");
         java.util.regex.Matcher cleanMatcher = alreadyCleanPattern.matcher(fileName);
         if (cleanMatcher.find()) {
-            return cleanMatcher.group(1); // Already in YYYYMMDD format, return it directly!
+            return cleanMatcher.group(1);
         }
 
-        // Otherwise, handle the original raw/messy naming convention (e.g., IMSR_CY26_06192026)
-        if (fileName.contains("IMSR")) {
-            fileName = fileName.substring(fileName.indexOf("IMSR"));
+        // Handle raw naming variants
+        String parseName = fileName;
+        if (parseName.contains("IMSR")) {
+            parseName = parseName.substring(parseName.indexOf("IMSR"));
         }
 
-        // Find the 8-digit date block (MMDDYYYY)
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d{8})");
-        java.util.regex.Matcher matcher = pattern.matcher(fileName);
+        java.util.regex.Matcher matcher = pattern.matcher(parseName);
 
         if (matcher.find()) {
-            String mmddyyyy = matcher.group(1); // e.g., "06192026"
-
+            String mmddyyyy = matcher.group(1);
             String mm = mmddyyyy.substring(0, 2);
             String dd = mmddyyyy.substring(2, 4);
-            String yyyy= mmddyyyy.substring(4, 8); // e.g., "2026"
-
-            // Reconstruct precisely to YYYYMMDD
-            return yyyy + mm + dd; // Results in "20260619"
+            String yyyy = mmddyyyy.substring(4, 8);
+            return yyyy + mm + dd;
         }
 
-        throw new IllegalArgumentException("Could not find a valid 8-digit date pattern in filename: " + fileName);
+        // Fallback: Return filename without extension if regex misses
+        return fileName.replaceAll("(?i)\\.pdf$", "");
     }
-    
 
     private void fix_ctd(List<String> final_fires) {
         String raw_number_record_list = "";
         for (int i = 0; i < final_fires.size(); i++) {
             String[] fs = final_fires.get(i).split("\t");
             if (fs.length <= 19) continue;
-            
+
             if (fs[18].endsWith("KI")) {
                 fs[18] = fs[18].substring(0, fs[18].length() - 1);
                 final_fires.set(i, String.join("\t", fs));
