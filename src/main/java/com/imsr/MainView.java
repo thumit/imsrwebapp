@@ -699,7 +699,8 @@ public class MainView extends VerticalLayout {
         for (File file : pdfFiles) {
             try {
                 String fileName = file.getName();
-                String dateKey = extractDateString(fileName).replace("-", "");
+                // Returns formatted YYYYMMDD string
+                String dateKey = extractDateString(fileName); 
                 String newFileName = dateKey + "IMSR.pdf";
 
                 File targetFile = new File(file.getParentFile(), newFileName);
@@ -719,18 +720,41 @@ public class MainView extends VerticalLayout {
                 }
             } catch (Exception e) {
                 System.out.println("Could not parse date for renaming: " + file.getName());
+                sortedUniqueFiles.putIfAbsent(file.getName(), file);
             }
         }
 
         return sortedUniqueFiles.values().toArray(new File[0]);
     }
 
-    private String extractDateString(String filename) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{4}-\\d{2}-\\d{2}|\\d{8})").matcher(filename);
-        if (m.find()) {
-            return m.group(1);
+    private String extractDateString(String fileName) {
+        // 1. Check if it's already in clean YYYYMMDDIMSR format (e.g., 20260619IMSR.pdf)
+        java.util.regex.Pattern alreadyCleanPattern = java.util.regex.Pattern.compile("^(\\d{8})IMSR");
+        java.util.regex.Matcher cleanMatcher = alreadyCleanPattern.matcher(fileName);
+        if (cleanMatcher.find()) {
+            return cleanMatcher.group(1);
         }
-        return filename;
+
+        // 2. Strip prefix up to "IMSR" for raw names (e.g., IMSR_CY26_06192026.pdf)
+        if (fileName.contains("IMSR")) {
+            fileName = fileName.substring(fileName.indexOf("IMSR"));
+        }
+
+        // 3. Match 8-digit block and convert MMDDYYYY -> YYYYMMDD
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d{8})");
+        java.util.regex.Matcher matcher = pattern.matcher(fileName);
+
+        if (matcher.find()) {
+            String mmddyyyy = matcher.group(1);
+
+            String mm = mmddyyyy.substring(0, 2);
+            String dd = mmddyyyy.substring(2, 4);
+            String yyyy = mmddyyyy.substring(4, 8);
+
+            return yyyy + mm + dd;
+        }
+
+        throw new IllegalArgumentException("Could not find a valid 8-digit date pattern in filename: " + fileName);
     }
 
     private void fix_ctd(List<String> fires) {
