@@ -172,6 +172,7 @@ public class MainView extends VerticalLayout {
         HorizontalLayout brandLayout = new HorizontalLayout(logoIcon, title, badge);
         brandLayout.setAlignItems(Alignment.CENTER);
         brandLayout.setSpacing(true);
+        brandLayout.getStyle().set("flex-shrink", "0");
 
         // Operational Transition Banner (Fills center gap)
         Div operationalNotice = new Div();
@@ -184,9 +185,9 @@ public class MainView extends VerticalLayout {
                 .set("color", "#f8fafc")
                 .set("font-size", "0.8rem")
                 .set("line-height", "1.4")
-                .set("min-width", "400px")
-                .set("max-width", "720px")
-                .set("flex-shrink", "1");      // Allows mild squishing down to 400px;
+                .set("min-width", "350px")
+                .set("max-width", "680px")
+                .set("flex-shrink", "1");      // Allows mild squishing down width;
 
         operationalNotice.add(new Html("<div>"
                 + "<strong style=\"color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.70rem; display: block; margin-bottom: 0.15rem;\">"
