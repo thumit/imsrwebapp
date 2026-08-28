@@ -321,7 +321,7 @@ public class MainView extends VerticalLayout {
                 .set("color", "#0f172a")
                 .set("margin", "0");
 
-     // Export Excel Button
+        // Export Excel Button Setup
         Button downloadExcelBtn = new Button("Excel Export", VaadinIcon.FILE_TABLE.create());
         downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         downloadExcelBtn.getStyle().set("border-radius", "0.375rem");
@@ -329,14 +329,16 @@ public class MainView extends VerticalLayout {
         String excelFileName = headerTitle.toLowerCase().replace(" ", "_") + ".xlsx";
         StreamResource excelResource = new StreamResource(excelFileName,
                 () -> convertDataToExcelStream(rawData));
+
         excelResource.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        excelResource.setCacheTime(0); // Prevents cloud proxy caching issues online
 
         Anchor downloadExcelAnchor = new Anchor(excelResource, "");
-        downloadExcelAnchor.setTarget("_blank");
+        downloadExcelAnchor.getElement().setAttribute("download", true); // Forces browser file download
         downloadExcelAnchor.add(downloadExcelBtn);
 
         // Export CSV Button
-        Button downloadCsvBtn = new Button("CSV Export", VaadinIcon.DOWNLOAD.create());
+        Button downloadCsvBtn = new Button("Csv Export", VaadinIcon.DOWNLOAD.create());
         downloadCsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         downloadCsvBtn.getStyle().set("border-radius", "0.375rem");
 
@@ -529,8 +531,8 @@ public class MainView extends VerticalLayout {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        // Use SXSSFWorkbook for memory-efficient streaming to prevent OOM errors
-        try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
+        // Uses standard in-memory XSSFWorkbook to bypass cloud container disk permission issues
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Data");
             String[] lines = rawData.split("\n");
 
@@ -553,7 +555,6 @@ public class MainView extends VerticalLayout {
 
             workbook.write(out);
             out.flush();
-            workbook.dispose(); // Clean up temporary disk files used by SXSSF
         } catch (Exception e) {
             e.printStackTrace();
         }
