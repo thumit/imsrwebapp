@@ -168,6 +168,30 @@ public class MainView extends VerticalLayout {
         brandLayout.setAlignItems(Alignment.CENTER);
         brandLayout.setSpacing(true);
 
+        // Operational Transition Banner (Fills center gap)
+        Div operationalNotice = new Div();
+        operationalNotice.getStyle()
+                .set("background-color", "rgba(255, 255, 255, 0.05)")
+                .set("border-left", "4px solid #0284c7")
+                .set("border-radius", "0.375rem")
+                .set("padding", "0.5rem 1rem")
+                .set("margin", "0 1.5rem")
+                .set("color", "#f8fafc")
+                .set("font-size", "0.8rem")
+                .set("line-height", "1.4")
+                .set("max-width", "720px");
+
+        operationalNotice.add(new Html("<div>"
+                + "<strong style=\"color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.70rem; display: block; margin-bottom: 0.15rem;\">"
+                + "Operational Transition Notice"
+                + "</strong>"
+                + "In June 2026, the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
+                + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em> "
+                + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
+                + "If we (Predictive Services) can assume that burden using your tools, we're willing. And, if we can make the data available in real time to the research "
+                + "and business communities, we'd support that too.\"</em> In support of this institutional milestone, we are proud to deliver this web application."
+                + "</div>"));
+
         // Upload Component Setup
         MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
         Upload upload = new Upload(buffer);
@@ -242,10 +266,11 @@ public class MainView extends VerticalLayout {
                 .set("display", "flex")
                 .set("align-items", "flex-start");
 
-        HorizontalLayout topBar = new HorizontalLayout(brandLayout, scrollWrapper);
+        HorizontalLayout topBar = new HorizontalLayout(brandLayout, operationalNotice, scrollWrapper);
         topBar.setWidthFull();
         topBar.setAlignItems(Alignment.CENTER);
         topBar.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        topBar.setFlexGrow(1, operationalNotice);
         topBar.getStyle()
                 .set("background", "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)")
                 .set("padding", "0.75rem 2rem")
