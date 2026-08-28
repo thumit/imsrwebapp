@@ -179,7 +179,9 @@ public class MainView extends VerticalLayout {
                 .set("color", "#f8fafc")
                 .set("font-size", "0.8rem")
                 .set("line-height", "1.4")
-                .set("max-width", "720px");
+                .set("min-width", "400px")
+                .set("max-width", "720px")
+                .set("flex-shrink", "1");      // Allows mild squishing down to 400px;
 
         operationalNotice.add(new Html("<div>"
                 + "<strong style=\"color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.70rem; display: block; margin-bottom: 0.15rem;\">"
@@ -261,10 +263,13 @@ public class MainView extends VerticalLayout {
         // Fixed scroll wrapper
         Div scrollWrapper = new Div(upload);
         scrollWrapper.getStyle()
-                .set("max-height", "200px")
+                .set("max-height", "180px")
                 .set("overflow-y", "auto")
+                .set("overflow-x", "hidden")   // Hide the horizontal scrollbar
                 .set("display", "flex")
-                .set("align-items", "flex-start");
+                .set("align-items", "flex-start")
+		        .set("flex-shrink", "0")       // Prevents the center banner from squishing this container
+		        .set("min-width", "180px");    // Guarantees enough room for the button and drop zone
 
         HorizontalLayout topBar = new HorizontalLayout(brandLayout, operationalNotice, scrollWrapper);
         topBar.setWidthFull();
