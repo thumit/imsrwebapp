@@ -174,7 +174,7 @@ public class MainView extends VerticalLayout {
         brandLayout.setSpacing(true);
         brandLayout.getStyle().set("flex-shrink", "0");
 
-        // Operational Transition Banner (Fills center gap)
+        // Operational Transition Banner (Fills center gap) 
         Div operationalNotice = new Div();
         operationalNotice.getStyle()
                 .set("background-color", "rgba(255, 255, 255, 0.05)")
