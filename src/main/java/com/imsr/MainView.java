@@ -280,6 +280,7 @@ public class MainView extends VerticalLayout {
         topBar.setWidthFull();
         topBar.setAlignItems(Alignment.CENTER);
         topBar.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        topBar.getStyle().set("flex-wrap", "wrap");
         topBar.setFlexGrow(1, operationalNotice);
         topBar.getStyle()
                 .set("background", "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)")
