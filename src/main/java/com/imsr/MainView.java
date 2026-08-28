@@ -196,8 +196,8 @@ public class MainView extends VerticalLayout {
                 + "In June 2026, the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
                 + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em> "
                 + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
-                + "If we (Predictive Services) can assume that burden using your tools, we're willing. And, if we can make the data available in real time to the research "
-                + "and business communities, we'd support that too.\"</em> In support of this institutional milestone, we are proud to deliver this web application."
+                + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em> "
+                + "In support of this institutional milestone, we are proud to deliver the IMSR web application."
                 + "</div>"));
 
         // Upload Component Setup
