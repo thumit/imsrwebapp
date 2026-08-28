@@ -88,7 +88,8 @@ public class MainView extends VerticalLayout {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
-        getStyle().set("background-color", "#f8fafc");
+        getStyle().set("background-color", "#f8fafc")
+        		.set("overflow", "hidden"); // Prevents main page window scrolling
 
         // Top Navigation Bar
         HorizontalLayout topBar = createTopHeaderBar();
@@ -105,6 +106,10 @@ public class MainView extends VerticalLayout {
         // Main Content Area Container
         contentArea.setSizeFull();
         contentArea.setPadding(true);
+        contentArea.getStyle()
+		        .set("overflow", "hidden") // Ensures content container stays fixed
+		        .set("display", "flex")
+		        .set("flex-direction", "column");
 
         add(topBar, tabs, contentArea);
         setFlexGrow(1, contentArea);
