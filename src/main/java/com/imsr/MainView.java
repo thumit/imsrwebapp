@@ -5,9 +5,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -123,10 +126,24 @@ public class MainView extends VerticalLayout {
                 .set("border-radius", "0.75rem")
                 .set("border", "1px solid #cbd5e1")
                 .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.05)");
-        consoleOutput.setValue("> System is initialized and ready.\n> IMSR PDFs can be downloaded at https://www.nifc.gov/nicc/incident-information/imsr.\n> Select (no more than 100) PDFs for extraction using the red button above.\n");
+        consoleOutput.setValue("> System is initialized and ready.\n> "
+        		+ "Today (or the latest) IMSR data extraction can be found in the next 4 tabs.\n> "
+        		+ "Historical IMSR PDFs can be downloaded at https://www.nifc.gov/nicc/incident-information/imsr.\n> "
+        		+ "Select (no more than 100) PDFs for extraction using the red button above.\n");
 
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
+        
+        File todayFile = fetchAndRenameTodayIMSR();
+        if (todayFile != null && todayFile.exists()) {
+            // Run extraction immediately on launch to show today result
+            runAggregationOnFiles(new File[]{todayFile});
+            consoleOutput.setValue("> System is initialized and ready.\n> "
+            		+ "Today (or the latest) IMSR data extraction can be found in the next 4 tabs.\n> "
+            		+ "Historical IMSR PDFs can be downloaded at https://www.nifc.gov/nicc/incident-information/imsr.\n> "
+            		+ "Select (no more than 100) PDFs for extraction using the red button above.\n");
+
+        }
     }
 
     private Tab createTab(String text, VaadinIcon iconType) {
@@ -192,10 +209,10 @@ public class MainView extends VerticalLayout {
                 + "Operational Transition Notice"
                 + "</strong>"
                 + "In June 2026, officials from the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
-                + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em> "
+                + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations "
                 + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
-                + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em> "
-                + " In support of this institutional milestone, we are proud to deliver the IMSR webapp."
+                + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em>"
+                + "&nbsp;In support of this institutional milestone, we are proud to deliver the IMSR webapp."
                 + "</div>"));
 
         // Upload Component Setup
@@ -806,6 +823,32 @@ public class MainView extends VerticalLayout {
         }
 
         throw new IllegalArgumentException("Could not find a valid 8-digit date pattern in filename: " + fileName);
+    }
+    
+    private File fetchAndRenameTodayIMSR() {
+        try {
+            // Build YYYYMMDDIMSR.pdf filename
+            String datePrefix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String fileName = datePrefix + "IMSR.pdf";
+
+            // Setup destination in temporary directory
+            File tempDir = new File(System.getProperty("java.io.tmpdir"), "auto_imsr_downloads");
+            if (!tempDir.exists()) {
+                tempDir.mkdirs();
+            }
+            File targetFile = new File(tempDir, fileName);
+
+            // Download from NIFC
+            URI uri = URI.create("https://www.nifc.gov/nicc-files/sitreprt.pdf");
+            try (InputStream in = uri.toURL().openStream()) {
+                Files.copy(in, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            return targetFile;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private void fix_ctd(List<String> fires) {
