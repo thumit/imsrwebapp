@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
@@ -56,7 +57,7 @@ public class MainView extends VerticalLayout {
     private final Tab tabAbout = createTab("ABOUT US", VaadinIcon.INFO_CIRCLE);
     private final Tab tabLicense = createTab("LICENSE", VaadinIcon.DIPLOMA);
 
-    private final Tabs tabs = new Tabs(tabNational, tabGacc, tabWildfire, tabResource, tabConsole, tabAbout, tabLicense);
+    private final Tabs tabs = new Tabs(tabAbout, tabLicense, tabConsole, tabNational, tabGacc, tabWildfire, tabResource );
     private final TextArea consoleOutput = new TextArea();
 
     // Dynamic Vaadin Grids
@@ -119,7 +120,7 @@ public class MainView extends VerticalLayout {
                 .set("border-radius", "0.75rem")
                 .set("border", "1px solid #cbd5e1")
                 .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.05)");
-        consoleOutput.setValue("> System initialized and ready.\n> Select or drop IMSR PDFs using the header action button above.\n");
+        consoleOutput.setValue("> System is initialized and ready.\n> IMSR PDFs can be downloaded at https://www.nifc.gov/nicc/incident-information/imsr.\n> Select (no more than 100) PDFs for extraction using the red button above.\n");
 
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
@@ -342,11 +343,11 @@ public class MainView extends VerticalLayout {
         memberList.setSpacing(true);
 
         memberList.add(
-                createMemberRow("Dung Nguyen", "Developer", "Colorado State University", "https://dzungcsu.wixsite.com/operations-research/about"),
-                createMemberRow("Yu Wei", "Research Collaborator", "Colorado State University", "https://people.warnercnr.colostate.edu/?yu.wei"),
-                createMemberRow("Erin Belval", "Research Collaborator", "USDA Forest Service & Colorado State University", "https://research.fs.usda.gov/about/people/erin.belval"),
-                createMemberRow("Karen Short", "Research Collaborator", "USDA Forest Service", "https://research.fs.usda.gov/about/people/karen.c.short"),
-                createMemberRow("David Calkin", "Research Collaborator", "USDA Forest Service", "https://research.fs.usda.gov/about/people/dave.e.calkin")
+                createMemberRow("Dung Nguyen", "Developer", "Research Scientist II - Colorado State University", "https://dzungcsu.wixsite.com/operations-research/about"),
+                createMemberRow("Yu Wei", "Research Collaborator", "Professor - Colorado State University", "https://people.warnercnr.colostate.edu/?yu.wei"),
+                createMemberRow("Erin Belval", "Research Collaborator", "Research Forester - USDA Forest Service", "https://research.fs.usda.gov/about/people/erin.belval"),
+                createMemberRow("Karen Short", "Research Collaborator", "Research Ecologist - USDA Forest Service", "https://research.fs.usda.gov/about/people/karen.c.short"),
+                createMemberRow("David Calkin", "Research Collaborator", "Former Research Forester - USDA Forest Service", "https://research.fs.usda.gov/about/people/dave.e.calkin")
         );
 
         card.add(header, memberList);
@@ -439,30 +440,34 @@ public class MainView extends VerticalLayout {
         titleBox.setWidthFull();
         titleBox.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
-        String licenseText = "Copyright (C) 2026 IMSR-WEBAPP DEVELOPER\n\n"
-                + "IMSR-WEBAPP is free online software: you can redistribute it and/or modify\n"
-                + "it under the terms of the GNU General Public License as published by\n"
-                + "the Free Software Foundation, either version 3 of the License, or\n"
-                + "(at your option) any later version.\n\n"
-                + "IMSR-WEBAPP is distributed in the hope that it will be useful,\n"
-                + "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
-                + "GNU General Public License for more details.\n\n"
-                + "You should have received a copy of the GNU General Public License\n"
-                + "along with IMSR-WEBAPP. If not, see <http://www.gnu.org/licenses/>.";
+        String htmlContent = "Copyright (C) 2026 IMSR-WEBAPP DEVELOPER<br><br>"
+                + "IMSR-WEBAPP is free online software: you can redistribute it and/or modify "
+                + "it under the terms of the GNU General Public License as published by "
+                + "the Free Software Foundation, either version 3 of the License, or "
+                + "(at your option) any later version.<br><br>"
+                + "IMSR-WEBAPP is distributed in the hope that it will be useful, "
+                + "but WITHOUT ANY WARRANTY; without even the implied warranty of "
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the "
+                + "GNU General Public License for more details.<br><br>"
+                + "You should have received a copy of the GNU General Public License "
+                + "along with IMSR-WEBAPP. If not, see <a href=\"http://www.gnu.org/licenses/\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">http://www.gnu.org/licenses/</a>.<br><br>"
+                + "----------------------------------------------------------------------------------------------------<br>"
+                + "If you use data generated by this webapp, please cite our paper:<br>"
+                + "Nguyen, D., Belval, E.J., Wei, Y. et al. Dataset of United States Incident Management Situation Reports from 2007 to 2021. "
+                + "Sci Data 11, 23 (2024). <a href=\"https://doi.org/10.1038/s41597-023-02876-8\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.1038/s41597-023-02876-8</a>";
 
-        Pre licenseDisplay = new Pre(licenseText);
-        licenseDisplay.getStyle()
-                .set("background-color", "#f8fafc")
-                .set("color", "#1e293b")
-                .set("padding", "1.5rem")
-                .set("border-radius", "0.5rem")
-                .set("font-family", "'Fira Code', Monaco, monospace")
-                .set("font-size", "0.875rem")
-                .set("line-height", "1.6")
-                .set("white-space", "pre-wrap")
-                .set("border", "1px solid #cbd5e1")
-                .set("width", "100%");
+        Html licenseDisplay = new Html("<div style=\""
+                + "background-color: #f8fafc; "
+                + "color: #1e293b; "
+                + "padding: 1.5rem; "
+                + "border-radius: 0.5rem; "
+                + "font-family: 'Fira Code', Monaco, monospace; "
+                + "font-size: 0.875rem; "
+                + "line-height: 1.6; "
+                + "white-space: pre-wrap; "
+                + "border: 1px solid #cbd5e1; "
+                + "width: 100%;"
+                + "\">" + htmlContent + "</div>");
 
         card.add(titleBox, licenseDisplay);
         container.add(card);
@@ -570,6 +575,11 @@ public class MainView extends VerticalLayout {
                             simple2File.delete();
                         }
                     }
+                    
+                    logBuilder.append("If you use data generated by this webapp, please cite our paper:\n");
+					logBuilder.append("Nguyen, D., Belval, E.J., Wei, Y. et al. Dataset of United States Incident Management Situation Reports from 2007 to 2021. "
+							+ "Sci Data 11, 23 (2024). https://doi.org/10.1038/s41597-023-02876-8\n");
+					logBuilder.append("----------------------------------------------------------------------------------------------------\n");
                     logBuilder.append("Number of processed PDF files: ").append(pdfFiles.length).append("\n");
 
                     if (!processedList.isEmpty()) {
@@ -687,9 +697,9 @@ public class MainView extends VerticalLayout {
             logBuilder.append(capturedLogs);
         }
 
-        logBuilder.append("----------------------------------------------------------------------------------------------------------------------------\n");
+        logBuilder.append("----------------------------------------------------------------------------------------------------\n");
         logBuilder.append("AGGREGATION IS COMPLETED - ALL RESULTS ARE READY FOR EXPORTATION\n");
-        logBuilder.append("----------------------------------------------------------------------------------------------------------------------------\n");
+        logBuilder.append("----------------------------------------------------------------------------------------------------\n");
 
         consoleOutput.setValue(logBuilder.toString());
         tabs.setSelectedTab(tabConsole);

@@ -2,13 +2,19 @@ package com.imsr;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
-import com.imsr.core.FilesHandle;
+import org.springframework.core.io.ClassPathResource;
+
 
 public class Utility {
 
@@ -20,11 +26,11 @@ public class Utility {
 
             if (isWindows) {
                 Path targetDirectory = Paths.get(inputFolder + File.separator + "pdftotext.exe");
-                pdftotext_target_file = FilesHandle.getResourceFile("pdftotext.exe", targetDirectory);
+                pdftotext_target_file = getResourceFile("pdftotext.exe", targetDirectory);
             } else {
                 // Linux / Render environment: Extract custom binary supporting -simple2
                 Path targetDirectory = Paths.get(inputFolder + File.separator + "pdftotext_linux");
-                pdftotext_target_file = FilesHandle.getResourceFile("pdftotext_linux", targetDirectory);
+                pdftotext_target_file = getResourceFile("pdftotext_linux", targetDirectory);
 
                 // Ensure execution permission is granted on the extracted Linux binary
                 if (pdftotext_target_file != null && pdftotext_target_file.exists()) {
@@ -99,5 +105,46 @@ public class Utility {
                 e.printStackTrace();
             }
         }
+    }
+    
+    // Gets the system's temporary directory or a local working directory for the web app
+    public static File get_temporaryFolder() {
+        File temporaryFolder = new File(System.getProperty("java.io.tmpdir"), "imsr_temp");
+        if (!temporaryFolder.exists()) {
+            temporaryFolder.mkdirs();
+        }
+        return temporaryFolder;
+    }   
+
+    public static File get_file_maequee() {
+        File file_maequee = null;
+        try {
+            file_maequee = new File(get_temporaryFolder(), "maequee.txt");
+            file_maequee.deleteOnExit();
+
+            // Use Spring's ClassPathResource to safely read files inside the JAR/classpath
+            ClassPathResource resource = new ClassPathResource("maequee.txt");
+            try (InputStream initialStream = resource.getInputStream();
+                 OutputStream outStream = new FileOutputStream(file_maequee)) {
+                byte[] buffer = new byte[initialStream.available()];
+                initialStream.read(buffer);
+                outStream.write(buffer);
+            }
+        } catch (IOException e) {
+            System.err.println(e.getClass().getName() + ": " + e.getMessage());
+        } 
+        return file_maequee;
+    }
+    
+    public static File getResourceFile(String fileName, Path targetDirectory) {
+        try {
+            ClassPathResource resource = new ClassPathResource(fileName);
+            try (InputStream initialStream = resource.getInputStream()) {
+                Files.copy(initialStream, targetDirectory, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            System.err.println(e.getClass().getName() + ": " + e.getMessage());
+        }
+        return targetDirectory.toFile();
     }
 }

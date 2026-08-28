@@ -32,7 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.imsr.core.SubstringBetween;
+import org.apache.commons.lang3.StringUtils;
 
 public class IMSR_Process {
 	String date, s_date, r_date;
@@ -159,17 +159,16 @@ public class IMSR_Process {
 		String[] merge_lines = Arrays.copyOfRange(s_lines, 0, mergeCount + 1);
 		String mstr = String.join(" ", merge_lines).toLowerCase().trim(); 
 		mstr = mstr.replaceAll("fire use teams:", "fire use teams committed:");
-		SubstringBetween sb = new SubstringBetween();
 		
 		String st = "national preparedness level";
-		String temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		String temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) national_prepareness_level = (temp.substring(temp.indexOf(" ") + 1)).trim();	// remove all characters (such as :) before the first space and then trim
 		if (temp != null) national_prepareness_level = national_prepareness_level.split(" ")[0];	// Fix the case in 2016 data i.e. 20160429,20160506, etc
 		st = "initial attack activity";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st));
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st));
 		if (temp == null) {
 			st = "initial activity";	// i.e. 20170712 to 18
-			temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st));
+			temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st));
 		}
 		if (temp != null) {
 			temp = (temp.substring(temp.indexOf(" ") + 1)).trim();	// remove all characters (such as :) before the first space and then trim
@@ -201,22 +200,22 @@ public class IMSR_Process {
 		if (Integer.valueOf(date.replaceAll("-", "")) == 20070423) mstr = mstr.replaceAll("national incident management 1 organization", "");	// Fix special case
 		
 		st = "new large incidents"; if (Integer.valueOf(date.substring(0, 4)) < 2015) st = "new large fires";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) new_large_incidents = (temp.substring(temp.indexOf(" ") + 1)).replaceAll("\\(\\*\\)", "").trim();		// replace (*) to handle special cases in 2015 data i.e. 20150102
 		st = "large fires contained";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) large_fires_contained = (temp.substring(temp.indexOf(" ") + 1)).trim();
 		st = "uncontained large fires";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st));  		// fail because of null 	i.e. 20170922	(area command teams committed does not exist)
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st));  		// fail because of null 	i.e. 20170922	(area command teams committed does not exist)
 		if (temp != null) uncontained_large_fires = ((temp.substring(temp.indexOf(" ") + 1))).replaceAll("\\*", "").replaceAll(":", "").trim();		// replace *** to handle special case 20210701-31 (that actually in ISMR2020 folder), replace : to handle 2010 data in first 5 months
 		st = "area command teams committed";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) area_command_teams_committed = (temp.substring(temp.indexOf(" ") + 1)).trim();
 		st = "nimos committed";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) nimos_committed = (temp.substring(temp.indexOf(" ") + 1)).trim();
 		st = "type 1 imts committed";
-		temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+		temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 		if (temp != null) type_1_imts_committed = (temp.substring(temp.indexOf(" ") + 1)).trim();
 		st = "type 2 imts committed";
 		if (mstr.indexOf(st) != - 1) {	// type 2 teams always exist
@@ -225,7 +224,7 @@ public class IMSR_Process {
 		}
 		if (l < s_lines.length - 1) {	// if fire use teams committed exists or complex teams exists, we also need to read type 2 team in a different way
 			st = "type 2 imts committed";
-			temp = sb.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
+			temp = StringUtils.substringBetween(mstr, st, get_national_next_term(mstr, st)); 
 			if (temp != null) type_2_imts_committed = (temp.substring(temp.indexOf(" ") + 1)).trim();
 			st = "fire use teams committed";
 			if (mstr.indexOf(st) != - 1) {
