@@ -191,11 +191,11 @@ public class MainView extends VerticalLayout {
                 + "<strong style=\"color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.70rem; display: block; margin-bottom: 0.15rem;\">"
                 + "Operational Transition Notice"
                 + "</strong>"
-                + "In June 2026, the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
+                + "In June 2026, officials from the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
                 + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em> "
                 + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
                 + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em> "
-                + " In support of this institutional milestone, we are proud to deliver the IMSR web application."
+                + " In support of this institutional milestone, we are proud to deliver the IMSR webapp."
                 + "</div>"));
 
         // Upload Component Setup
