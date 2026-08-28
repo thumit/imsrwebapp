@@ -183,7 +183,7 @@ public class MainView extends VerticalLayout {
                 .set("color", "#f8fafc")
                 .set("font-size", "0.8rem")
                 .set("line-height", "1.4")
-                .set("min-width", "350px")
+                .set("min-width", "280px")
                 .set("max-width", "680px")
                 .set("flex-shrink", "1");      // Allows mild squishing down width;
 
@@ -195,7 +195,7 @@ public class MainView extends VerticalLayout {
                 + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em> "
                 + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
                 + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em> "
-                + "In support of this institutional milestone, we are proud to deliver the IMSR web application."
+                + " In support of this institutional milestone, we are proud to deliver the IMSR web application."
                 + "</div>"));
 
         // Upload Component Setup
