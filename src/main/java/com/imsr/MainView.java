@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -206,13 +207,13 @@ public class MainView extends VerticalLayout {
 
         operationalNotice.add(new Html("<div>"
                 + "<strong style=\"color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.70rem; display: block; margin-bottom: 0.15rem;\">"
-                + "Operational Transition Notice"
+                + "System Announcement"
                 + "</strong>"
                 + "In June 2026, officials from the National Interagency Coordination Center (NICC) Predictive Services initiated a strategic discussion to "
-                + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations "
+                + "<em>\"move the IMSR scraping and data stewardship out of the research realm and into operations\"</em>, "
                 + "as this work <em>\"fulfilled a need so effectively that we want it known that this work is endorsed by the business and will be sustained indefinitely. "
                 + "And, if we can make the data available in real time to the research and business communities, we'd support that too.\"</em>"
-                + "&nbsp;In support of this institutional milestone, we are proud to deliver the IMSR webapp."
+                + "&nbsp; In response, we built this free online application to provide real-time data extraction for public needs."
                 + "</div>"));
 
         // Upload Component Setup
@@ -328,7 +329,52 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private VerticalLayout buildDataView(String titleText, Grid<String[]> grid, String headerTitle, String[] headers, String rawData) {
+    private InputStream convertAllTablesToMultiSheetExcel(Map<String, String> sheetMap) {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            for (Map.Entry<String, String> entry : sheetMap.entrySet()) {
+                String sheetName = entry.getKey();
+                String rawData = entry.getValue();
+
+                // Excel sheet names cannot exceed 31 chars or contain illegal chars
+                String safeSheetName = sheetName.toLowerCase().replaceAll("[\\\\/*?:|\\[\\]\\s]+", "_");
+                if (safeSheetName.length() > 31) {
+                    safeSheetName = safeSheetName.substring(0, 31);
+                }
+
+                Sheet sheet = workbook.createSheet(safeSheetName);
+                
+                if (rawData != null && !rawData.trim().isEmpty()) {
+                    String[] lines = rawData.split("\n");
+                    for (int rowIndex = 0; rowIndex < lines.length; rowIndex++) {
+                        Row row = sheet.createRow(rowIndex);
+                        String[] columns = lines[rowIndex].split("\t"); // Tab-separated raw data
+                        
+                        for (int colIndex = 0; colIndex < columns.length; colIndex++) {
+                            Cell cell = row.createCell(colIndex);
+                            cell.setCellValue(columns[colIndex].trim());
+                        }
+                    }
+                }
+            }
+
+            workbook.write(out);
+            return new ByteArrayInputStream(out.toByteArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ByteArrayInputStream(new byte[0]);
+        }
+    }
+    
+    private VerticalLayout buildDataView(
+            String titleText, 
+            Grid<String[]> grid, 
+            String headerTitle, 
+            String[] headers, 
+            String rawData,
+            Supplier<Map<String, String>> allTablesDataSupplier) { // Added supplier parameter
+
         VerticalLayout card = createBaseCard();
 
         H2 header = new H2(titleText);
@@ -338,28 +384,28 @@ public class MainView extends VerticalLayout {
                 .set("color", "#0f172a")
                 .set("margin", "0");
 
-        // Export Excel Button Setup
+        // Export Excel Button (Exports all 4 sheets)
         Button downloadExcelBtn = new Button("Excel Export", VaadinIcon.FILE_TABLE.create());
         downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         downloadExcelBtn.getStyle().set("border-radius", "0.375rem");
 
-        String excelFileName = headerTitle.toLowerCase().replace(" ", "_") + ".xlsx";
+        String excelFileName = "all_imsr_tables.xlsx";
         StreamResource excelResource = new StreamResource(excelFileName,
-                () -> convertDataToExcelStream(rawData));
+                () -> convertAllTablesToMultiSheetExcel(allTablesDataSupplier.get()));
 
         excelResource.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        excelResource.setCacheTime(0); // Prevents cloud proxy caching issues online
+        excelResource.setCacheTime(0);
 
         Anchor downloadExcelAnchor = new Anchor(excelResource, "");
-        downloadExcelAnchor.getElement().setAttribute("download", true); // Forces browser file download
+        downloadExcelAnchor.getElement().setAttribute("download", true);
         downloadExcelAnchor.add(downloadExcelBtn);
 
-        // Export CSV Button
+        // Export CSV Button (Keeps single-table CSV export)
         Button downloadCsvBtn = new Button("Csv Export", VaadinIcon.DOWNLOAD.create());
         downloadCsvBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         downloadCsvBtn.getStyle().set("border-radius", "0.375rem");
 
-        String csvData = rawData.replace("\t", ",");
+        String csvData = rawData != null ? rawData.replace("\t", ",") : "";
         StreamResource csvResource = new StreamResource(headerTitle.toLowerCase().replace(" ", "_") + ".csv",
                 () -> new ByteArrayInputStream(csvData.getBytes(StandardCharsets.UTF_8)));
 
@@ -539,44 +585,6 @@ public class MainView extends VerticalLayout {
                 .set("box-shadow", "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05)")
                 .set("border", "1px solid #e2e8f0");
         return card;
-    }
-
-    private InputStream convertDataToExcelStream(String rawData) {
-        if (rawData == null || rawData.trim().isEmpty()) {
-            return new ByteArrayInputStream(new byte[0]);
-        }
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-        // Uses standard in-memory XSSFWorkbook to bypass cloud container disk permission issues
-        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Data");
-            String[] lines = rawData.split("\n");
-
-            for (int i = 0; i < lines.length; i++) {
-                Row row = sheet.createRow(i);
-                String[] cells = lines[i].split("\t", -1);
-                for (int j = 0; j < cells.length; j++) {
-                    Cell cell = row.createCell(j);
-                    String val = cells[j].trim();
-                    
-                    if (val.matches("-?\\d+")) {
-                        cell.setCellValue(Long.parseLong(val));
-                    } else if (val.matches("-?\\d+\\.\\d+")) {
-                        cell.setCellValue(Double.parseDouble(val));
-                    } else {
-                        cell.setCellValue(val);
-                    }
-                }
-            }
-
-            workbook.write(out);
-            out.flush();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return new ByteArrayInputStream(out.toByteArray());
     }
 
     private void runAggregationOnFiles(File[] pdfFiles) {
@@ -857,14 +865,26 @@ public class MainView extends VerticalLayout {
 
     private void updateContent(Tab selectedTab) {
         contentArea.removeAll();
+        
+        // 1. Define the shared supplier that packages all 4 datasets
+        Supplier<Map<String, String>> allTablesSupplier = () -> {
+            Map<String, String> map = new java.util.LinkedHashMap<>();
+            map.put("National Activity", nationalTsvData);
+            map.put("GACC Activity", gaccTsvData);
+            map.put("Wildfire Activity", wildfireTsvData);
+            map.put("Resource Summary", resourceTsvData);
+            return map;
+        };
+        
+        // 2. Pass allTablesSupplier into buildDataView for each tab
         if (selectedTab.equals(tabNational)) {
-            contentArea.add(buildDataView("National Activity Data", nationalGrid, "National Activity", header1, nationalTsvData));
+            contentArea.add(buildDataView("National Activity Data", nationalGrid, "National Activity", header1, nationalTsvData, allTablesSupplier));
         } else if (selectedTab.equals(tabGacc)) {
-            contentArea.add(buildDataView("GACC Activity Data", gaccGrid, "GACC Activity", header2, gaccTsvData));
+            contentArea.add(buildDataView("GACC Activity Data", gaccGrid, "GACC Activity", header2, gaccTsvData, allTablesSupplier));
         } else if (selectedTab.equals(tabWildfire)) {
-            contentArea.add(buildDataView("Wildfire Activity Data", wildfireGrid, "Wildfire Activity", header3, wildfireTsvData));
+            contentArea.add(buildDataView("Wildfire Activity Data", wildfireGrid, "Wildfire Activity", header3, wildfireTsvData, allTablesSupplier));
         } else if (selectedTab.equals(tabResource)) {
-            contentArea.add(buildDataView("Resource Summary Data", resourceGrid, "Resource Summary", header4, resourceTsvData));
+            contentArea.add(buildDataView("Resource Summary Data", resourceGrid, "Resource Summary", header4, resourceTsvData, allTablesSupplier));
         } else if (selectedTab.equals(tabConsole)) {
             contentArea.add(consoleOutput);
         } else if (selectedTab.equals(tabAbout)) {
