@@ -28,6 +28,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Anchor;
@@ -37,8 +38,11 @@ import com.vaadin.flow.component.html.Pre;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.tabs.TabsVariant;
@@ -53,6 +57,7 @@ public class MainView extends VerticalLayout {
 
     private final VerticalLayout contentArea = new VerticalLayout();
 
+    private Dialog loadingDialog;
     private final Tab tabNational = createTab("NATIONAL ACTIVITY", VaadinIcon.GLOBE);
     private final Tab tabGacc = createTab("GACC ACTIVITY", VaadinIcon.MAP_MARKER);
     private final Tab tabWildfire = createTab("WILDFIRE ACTIVITY", VaadinIcon.FIRE);
@@ -148,6 +153,38 @@ public class MainView extends VerticalLayout {
         }
     }
 
+    private void createLoadingDialog() {
+        loadingDialog = new Dialog();
+        loadingDialog.setCloseOnEsc(false);
+        loadingDialog.setCloseOnOutsideClick(false);
+
+        ProgressBar progressBar = new ProgressBar();
+        progressBar.setIndeterminate(true);
+
+        Span statusLabel = new Span("Processing IMSR PDFs... Please wait.");
+        statusLabel.getStyle()
+                .set("font-weight", "600")
+                .set("color", "#0f172a");
+
+        VerticalLayout dialogLayout = new VerticalLayout(progressBar, statusLabel);
+        dialogLayout.setAlignItems(Alignment.CENTER);
+        dialogLayout.setPadding(true);
+        dialogLayout.setSpacing(true);
+
+        loadingDialog.add(dialogLayout);
+    }
+
+    private void showLoading(boolean show) {
+        if (loadingDialog == null) {
+            createLoadingDialog();
+        }
+        if (show) {
+            loadingDialog.open();
+        } else {
+            loadingDialog.close();
+        }
+    }
+    
     private Tab createTab(String text, VaadinIcon iconType) {
         Icon icon = iconType.create();
         icon.getStyle()
@@ -267,6 +304,10 @@ public class MainView extends VerticalLayout {
             }
         });
 
+        upload.addStartedListener(event -> {
+            showLoading(true);
+        });
+        
         upload.addAllFinishedListener(event -> {
             File[] fileArray;
             synchronized (uploadedBatchFiles) {
@@ -281,6 +322,7 @@ public class MainView extends VerticalLayout {
             if (fileArray.length > 0) {
                 runAggregationOnFiles(fileArray);
             }
+            showLoading(false);
         });
 
         // Fixed scroll wrapper
@@ -773,6 +815,7 @@ public class MainView extends VerticalLayout {
         consoleOutput.setValue(logBuilder.toString());
         tabs.setSelectedTab(tabConsole);
         updateContent(tabConsole);
+        Notification.show("Aggregation completed successfully!", 3000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
     }
 
     private File[] prepareAndCleanFiles(File[] pdfFiles) {
