@@ -75,6 +75,7 @@ public class MainView extends VerticalLayout {
     private String gaccTsvData = "";
     private String wildfireTsvData = "";
     private String resourceTsvData = "";
+    private byte[] cachedExcelBytes;
 
     private final String[] header1 = new String[] { "imsr_date", "preparedness_level", "initial_attack_activity",
             "new_fires", "new_large_fires", "contained_large_fires", "uncontained_large_fires", "area_command_teams", "nimos", "type_1_teams", "type_2_teams", "fire_use_teams", "complex_teams" };
@@ -329,7 +330,7 @@ public class MainView extends VerticalLayout {
         }
     }
 
-    private InputStream convertAllTablesToMultiSheetExcel(Map<String, String> sheetMap) {
+    private byte[] convertAllTablesToMultiSheetExcel(Map<String, String> sheetMap) {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
@@ -360,10 +361,10 @@ public class MainView extends VerticalLayout {
             }
 
             workbook.write(out);
-            return new ByteArrayInputStream(out.toByteArray());
+            return out.toByteArray();
         } catch (Exception e) {
             e.printStackTrace();
-            return new ByteArrayInputStream(new byte[0]);
+            return new byte[0];
         }
     }
     
@@ -373,7 +374,7 @@ public class MainView extends VerticalLayout {
             String headerTitle, 
             String[] headers, 
             String rawData,
-            Supplier<Map<String, String>> allTablesDataSupplier) { // Added supplier parameter
+            byte[] cachedExcel) {
 
         VerticalLayout card = createBaseCard();
 
@@ -384,14 +385,14 @@ public class MainView extends VerticalLayout {
                 .set("color", "#0f172a")
                 .set("margin", "0");
 
-        // Export Excel Button (Exports all 4 sheets)
+        // Export Excel Button (Exports pre-built multi-sheet Excel instantly)
         Button downloadExcelBtn = new Button("Excel Export", VaadinIcon.FILE_TABLE.create());
         downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         downloadExcelBtn.getStyle().set("border-radius", "0.375rem");
 
         String excelFileName = "imsr_extraction.xlsx";
         StreamResource excelResource = new StreamResource(excelFileName,
-                () -> convertAllTablesToMultiSheetExcel(allTablesDataSupplier.get()));
+                () -> new ByteArrayInputStream(cachedExcel != null ? cachedExcel : new byte[0]));
 
         excelResource.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         excelResource.setCacheTime(0);
@@ -711,6 +712,13 @@ public class MainView extends VerticalLayout {
                         wildfireGrid.setItems(wildfireRows);
                         wildfireTsvData = wildfireContent.toString();
 
+                        Map<String, String> sheetMap = new java.util.LinkedHashMap<>();
+                        sheetMap.put("National Activity", nationalTsvData);
+                        sheetMap.put("GACC Activity", gaccTsvData);
+                        sheetMap.put("Wildfire Activity", wildfireTsvData);
+                        sheetMap.put("Resource Summary", resourceTsvData);
+
+                        this.cachedExcelBytes = convertAllTablesToMultiSheetExcel(sheetMap);
                     } else {
                         System.out.println("ERROR: No matching text files found for selection.");
                     }
@@ -866,25 +874,14 @@ public class MainView extends VerticalLayout {
     private void updateContent(Tab selectedTab) {
         contentArea.removeAll();
         
-        // 1. Define the shared supplier that packages all 4 datasets
-        Supplier<Map<String, String>> allTablesSupplier = () -> {
-            Map<String, String> map = new java.util.LinkedHashMap<>();
-            map.put("National Activity", nationalTsvData);
-            map.put("GACC Activity", gaccTsvData);
-            map.put("Wildfire Activity", wildfireTsvData);
-            map.put("Resource Summary", resourceTsvData);
-            return map;
-        };
-        
-        // 2. Pass allTablesSupplier into buildDataView for each tab
         if (selectedTab.equals(tabNational)) {
-            contentArea.add(buildDataView("National Activity Data", nationalGrid, "National Activity", header1, nationalTsvData, allTablesSupplier));
+            contentArea.add(buildDataView("National Activity Data", nationalGrid, "National Activity", header1, nationalTsvData, cachedExcelBytes));
         } else if (selectedTab.equals(tabGacc)) {
-            contentArea.add(buildDataView("GACC Activity Data", gaccGrid, "GACC Activity", header2, gaccTsvData, allTablesSupplier));
+            contentArea.add(buildDataView("GACC Activity Data", gaccGrid, "GACC Activity", header2, gaccTsvData, cachedExcelBytes));
         } else if (selectedTab.equals(tabWildfire)) {
-            contentArea.add(buildDataView("Wildfire Activity Data", wildfireGrid, "Wildfire Activity", header3, wildfireTsvData, allTablesSupplier));
+            contentArea.add(buildDataView("Wildfire Activity Data", wildfireGrid, "Wildfire Activity", header3, wildfireTsvData, cachedExcelBytes));
         } else if (selectedTab.equals(tabResource)) {
-            contentArea.add(buildDataView("Resource Summary Data", resourceGrid, "Resource Summary", header4, resourceTsvData, allTablesSupplier));
+            contentArea.add(buildDataView("Resource Summary Data", resourceGrid, "Resource Summary", header4, resourceTsvData, cachedExcelBytes));
         } else if (selectedTab.equals(tabConsole)) {
             contentArea.add(consoleOutput);
         } else if (selectedTab.equals(tabAbout)) {
