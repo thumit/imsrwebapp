@@ -389,7 +389,7 @@ public class MainView extends VerticalLayout {
         downloadExcelBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         downloadExcelBtn.getStyle().set("border-radius", "0.375rem");
 
-        String excelFileName = "all_imsr_tables.xlsx";
+        String excelFileName = "imsr_extraction.xlsx";
         StreamResource excelResource = new StreamResource(excelFileName,
                 () -> convertAllTablesToMultiSheetExcel(allTablesDataSupplier.get()));
 
