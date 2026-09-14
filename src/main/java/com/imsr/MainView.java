@@ -638,7 +638,7 @@ public class MainView extends VerticalLayout {
         titleBox.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
         String htmlContent =
-                "2007-2026 (August 31) IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.33406060\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.33406060</a>.<br>"
+                "2007-2026 (September 13) IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.33406060\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.33406060</a>.<br>"
         		+ "2007-2025 IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.31032004\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.31032004</a>.<br><br>"
                 + "----------------------------------------------------------------------------------------------------<br>"
                 + "<b>DATA USE & MANDATORY CITATION (CC-BY 4.0):</b><br>"
