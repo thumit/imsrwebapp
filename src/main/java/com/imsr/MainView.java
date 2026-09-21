@@ -149,7 +149,7 @@ public class MainView extends VerticalLayout {
             		+ "----------------------------------------------------------------------------------------------------\n"
             		+ "Today (or the most current day) IMSR data extraction can be found in the next 4 tabs.\n"
             		+ "----------------------------------------------------------------------------------------------------\n"
-            		+ "NOTE: IMSR extraction archive (from 2007 to 2026 September 13) can be downloaded from the ARCHIVE tab. You may need to download some latest IMSR PDFs to update this archive.\n"
+            		+ "NOTE: IMSR extraction archive (from 2007 to 2026 September 21) can be downloaded from the ARCHIVE tab. You may need to download some latest IMSR PDFs to update this archive.\n"
                     + "----------------------------------------------------------------------------------------------------\n"
             		+ "Historical and latest IMSR PDFs can be downloaded at https://www.nifc.gov/nicc/incident-information/imsr.\n"
             		+ "----------------------------------------------------------------------------------------------------\n"
@@ -638,7 +638,7 @@ public class MainView extends VerticalLayout {
         titleBox.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
         String htmlContent =
-                "2007-2026 (September 13) IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.33406060\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.33406060</a>.<br>"
+                "2007-2026 (September 21) IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.33406060\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.33406060</a>.<br>"
         		+ "2007-2025 IMSR data: <a href=\"https://doi.org/10.6084/m9.figshare.31032004\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline;\">https://doi.org/10.6084/m9.figshare.31032004</a>.<br><br>"
                 + "----------------------------------------------------------------------------------------------------<br>"
                 + "<b>DATA USE & MANDATORY CITATION (CC-BY 4.0):</b><br>"
